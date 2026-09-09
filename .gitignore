@@ -2,5 +2,10 @@ __pycache__/
 *.pyc
 .venv/
 .DS_Store
-/data/medieval-mss-master/
-/data/*.tar.gz
+node_modules/
+
+# Build inputs: large, refetchable, never committed.
+/data/cache/
+
+# Build outputs live in site/data/ and ARE committed -- they are the artifact
+# that makes the site reproducible without re-running a 7-minute manifest crawl.

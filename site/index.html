@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ante Quem — place the manuscript in time</title>
+<meta name="description" content="A daily game about dating medieval manuscripts, built on the Bodleian Libraries' open catalogue.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#stage">Skip to the game</a>
+
+<header>
+  <h1>Ante Quem</h1>
+  <p class="tagline">Place the manuscript in time.</p>
+  <nav aria-label="Game mode">
+    <button id="mode-daily" class="mode is-active" aria-pressed="true">Daily</button>
+    <button id="mode-endless" class="mode" aria-pressed="false">Endless</button>
+  </nav>
+</header>
+
+<main>
+  <section id="stage">
+    <figure id="card">
+      <canvas id="view" width="460" height="560" role="img"
+              aria-label="A cropped detail of the manuscript you are placing"></canvas>
+      <figcaption id="credit"></figcaption>
+    </figure>
+
+    <div id="controls">
+      <p id="prompt">Where does this belong on your timeline?</p>
+      <button id="expand">Look wider</button>
+      <p id="expand-note" class="note"></p>
+      <dl id="stats">
+        <div><dt>Score</dt><dd id="score">0</dd></div>
+        <div><dt>Round</dt><dd id="round">—</dd></div>
+        <div><dt>Lives</dt><dd id="lives">•••</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section id="board-wrap">
+    <h2 class="label">Your timeline <span class="hint">earliest first</span></h2>
+    <div id="board" aria-live="polite"></div>
+  </section>
+
+  <section id="reveal" hidden aria-live="polite"></section>
+  <section id="summary" hidden></section>
+</main>
+
+<footer>
+  <p class="attribution">
+    Catalogue data from <a href="https://github.com/bodleian/medieval-mss">bodleian/medieval-mss</a>.
+    Images © Bodleian Libraries, University of Oxford, and reused under
+    <a href="https://creativecommons.org/licenses/by-nc/4.0/">CC BY-NC 4.0</a>.
+    Every manuscript here links to its own catalogue record.
+  </p>
+</footer>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

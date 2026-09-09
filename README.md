@@ -4,18 +4,54 @@ Two browser games that teach you to read a medieval manuscript by eye, built on 
 Libraries' open TEI catalogue ([bodleian/medieval-mss](https://github.com/bodleian/medieval-mss)).
 
 - **Ante Quem** — place manuscripts in time. Fast, daily, streak-based.
-- **Look Closer** — interrogate one page with a limited budget of looking, then commit to a reading.
+- **Look Closer** — interrogate one page with a limited budget of looking, then commit to a
+  reading. *(Milestone 2, not yet built.)*
 
-Every round links back to the Bodleian's own catalogue record.
+Every round ends with a link back to the Bodleian's own catalogue record. That is the point:
+the game is a front door to 2,201 manuscripts, not a destination.
 
-Design: [`docs/specs/2026-09-09-design.md`](docs/specs/2026-09-09-design.md)
+## How it works
 
-## Status
+A Python build step turns 11,123 TEI records into four JSON files. A dependency-free static site
+consumes them. There is no server, no database and no runtime cost.
 
-Design approved. Not yet implemented.
+The rules that decide whether an answer is *defensible* — deck legality, the difficulty ladder —
+live in Python under test and arrive pre-computed. The browser renders and keeps score.
 
-## Attribution
+One IIIF image is fetched per manuscript and every crop after that is a local canvas operation.
+This is not an optimisation: Bodleian's image server timed out on roughly one request in five
+during testing, so any code path that blocks the player on the network is a defect.
 
-Manuscript images are served from Digital Bodleian under CC BY-NC 4.0 and are credited in place.
-Catalogue text is from bodleian/medieval-mss; its licence is unstated in that repository and
-must be confirmed with the Bodleian before public launch.
+## Build
+
+```bash
+python -m pytest tests/ -q          # build-step tests
+cd site && node --test test/*.test.js   # game logic tests
+
+python scripts/warm_manifests.py    # once: ~7 min, caches 2,201 IIIF manifests
+python -m build                     # writes site/data/*.json
+```
+
+Then serve the site:
+
+```bash
+python3 -m http.server 8020 --directory site
+```
+
+## Layout
+
+    build/        the extraction pipeline (stdlib only)
+    tests/        pytest
+    site/         the static site; this directory is what gets deployed
+    site/data/    committed build output
+    data/cache/   downloaded corpus and manifest cache (gitignored)
+    docs/specs/   the design
+    docs/superpowers/plans/   the implementation plan
+
+## Attribution and licensing
+
+Manuscript images are served from Digital Bodleian under
+[CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) and are credited in place.
+
+Catalogue text comes from `bodleian/medieval-mss`, **which has no LICENSE file**. Confirm reuse
+terms with the Bodleian before making this public.

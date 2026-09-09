@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Shelf — what you have met</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>The Shelf</h1>
+  <p class="tagline">Everything you have met, and everything you have not.</p>
+  <nav aria-label="Games">
+    <a class="mode" href="index.html">Ante Quem</a>
+    <a class="mode" href="look.html">Look Closer</a>
+    <a class="mode is-active" href="shelf.html" aria-current="page">The Shelf</a>
+  </nav>
+</header>
+
+<main>
+  <p id="headline" class="headline">Loading…</p>
+  <p id="gaps" class="note"></p>
+
+  <section>
+    <h2 class="label">By century</h2>
+    <div id="by-century" class="bars"></div>
+  </section>
+
+  <section>
+    <h2 class="label">By region</h2>
+    <div id="by-region" class="bars"></div>
+  </section>
+
+  <section>
+    <h2 class="label">What you have met</h2>
+    <div id="met" class="met"></div>
+  </section>
+</main>
+
+<footer>
+  <p class="attribution">
+    Catalogue data from <a href="https://github.com/bodleian/medieval-mss">bodleian/medieval-mss</a>.
+    Images © Bodleian Libraries, University of Oxford, reused under
+    <a href="https://creativecommons.org/licenses/by-nc/4.0/">CC BY-NC 4.0</a>.
+  </p>
+</footer>
+
+<script type="module" src="shelf-app.js"></script>
+</body>
+</html>

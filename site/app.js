@@ -7,6 +7,7 @@
 import { cropBox, EXPANSION_STEPS, focusPoint } from "./crop.js";
 import { MULTIPLIERS, scoreRound, shareGrid } from "./scoring.js";
 import { renderReveal } from "./reveal.js";
+import { createShelf } from "./shelf.js";
 
 const DATA = "data/";
 const IIIF_WIDTH = 682;        // a pre-rendered size; 341 and 420 both time out
@@ -14,6 +15,7 @@ const PREFETCH_AHEAD = 3;
 const LIVES = 3;
 
 const $ = (id) => document.getElementById(id);
+const shelf = createShelf(window.localStorage);
 
 const state = {
   puzzles: new Map(),
@@ -146,6 +148,7 @@ function commit(slotIndex) {
 
   state.score += gained;
   state.rounds.push({ correct, expansions: state.expansions });
+  shelf.record(card.id);
   if (correct) {
     state.board.push(card);
     state.board.sort((a, b) => a.not_before - b.not_before);

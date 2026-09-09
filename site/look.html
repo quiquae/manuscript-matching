@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Look Closer — read the page</title>
+<meta name="description" content="Interrogate a medieval manuscript page with a limited budget of looking, then commit to a reading.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#stage">Skip to the game</a>
+
+<header>
+  <h1>Look Closer</h1>
+  <p class="tagline">Five looks. Then tell me what you are holding.</p>
+  <nav aria-label="Games">
+    <a class="mode" href="index.html">Ante Quem</a>
+    <a class="mode is-active" href="look.html" aria-current="page">Look Closer</a>
+    <a class="mode" href="shelf.html">The Shelf</a>
+  </nav>
+</header>
+
+<main>
+  <section id="stage">
+    <figure id="card">
+      <canvas id="view" width="520" height="640"
+              aria-label="A mostly hidden manuscript page. Click to uncover a patch."></canvas>
+      <figcaption id="credit"></figcaption>
+    </figure>
+
+    <div id="controls">
+      <p id="prompt">Click the page to uncover a patch. Choose where carefully.</p>
+      <p id="budget" class="budget"></p>
+
+      <form id="reading">
+        <label class="field">
+          <span>When was it made?</span>
+          <input type="range" id="year" min="-300" max="1600" step="10" value="1300">
+          <output id="year-out">1300</output>
+        </label>
+
+        <fieldset class="field">
+          <legend>Where?</legend>
+          <div id="regions" class="choices"></div>
+        </fieldset>
+
+        <fieldset class="field">
+          <legend>What kind of book?</legend>
+          <div id="subjects" class="choices"></div>
+        </fieldset>
+
+        <button type="submit" id="commit">Commit to this reading</button>
+      </form>
+
+      <dl id="stats">
+        <div><dt>Score</dt><dd id="score">0</dd></div>
+        <div><dt>Read</dt><dd id="count">0</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section id="reveal" hidden aria-live="polite"></section>
+</main>
+
+<footer>
+  <p class="attribution">
+    Catalogue data from <a href="https://github.com/bodleian/medieval-mss">bodleian/medieval-mss</a>.
+    Images © Bodleian Libraries, University of Oxford, reused under
+    <a href="https://creativecommons.org/licenses/by-nc/4.0/">CC BY-NC 4.0</a>.
+  </p>
+</footer>
+
+<script type="module" src="look.js"></script>
+</body>
+</html>

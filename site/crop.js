@@ -33,8 +33,21 @@ export function focusPoint(imageData, gridN = 8) {
   const { data, width, height } = imageData;
   let best = { score: -1, gx: (gridN - 1) / 2, gy: (gridN - 1) / 2 };
 
-  for (let gy = 0; gy < gridN; gy++) {
-    for (let gx = 0; gx < gridN; gx++) {
+  // Two corrections, both learned from real pages:
+  //
+  // 1. Centrality. Scans carry a mount, a colour bar and a ruler at the edges,
+  //    all of which are far busier than the text they surround.
+  // 2. Mid-tone preference. A hard white-to-black mount boundary has enormous
+  //    variance and no information; ink on parchment has less of both.
+  // 3. The outer ring is skipped outright when the grid is large enough to have
+  //    one: a text block always sits inside its margins, and a scan always has
+  //    mount outside the leaf.
+  const centre = (g) => 1 - Math.abs((g + 0.5) / gridN - 0.5) * 2;   // 1 at middle, 0 at edge
+  const midtone = (mean) => Math.exp(-(((mean - 140) / 85) ** 2));   // peaks on parchment
+  const margin = gridN >= 4 ? 1 : 0;
+
+  for (let gy = margin; gy < gridN - margin; gy++) {
+    for (let gx = margin; gx < gridN - margin; gx++) {
       const x0 = Math.floor((gx * width) / gridN);
       const x1 = Math.floor(((gx + 1) * width) / gridN);
       const y0 = Math.floor((gy * height) / gridN);
@@ -53,8 +66,11 @@ export function focusPoint(imageData, gridN = 8) {
         }
       }
       if (!n) continue;
-      const variance = sumSq / n - (sum / n) ** 2;
-      if (variance > best.score) best = { score: variance, gx, gy };
+      const mean = sum / n;
+      const variance = sumSq / n - mean ** 2;
+      const weight = centre(gx) * centre(gy) * midtone(mean);
+      const score = Math.sqrt(variance) * weight;
+      if (score > best.score) best = { score, gx, gy };
     }
   }
   return { cx: (best.gx + 0.5) / gridN, cy: (best.gy + 0.5) / gridN };

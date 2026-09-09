@@ -76,9 +76,17 @@ function draw() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   if (!state.image) return;
 
-  const zoom = EXPANSION_STEPS[Math.min(state.expansions, EXPANSION_STEPS.length - 1)];
+  const step = Math.min(state.expansions, EXPANSION_STEPS.length - 1);
+  const zoom = EXPANSION_STEPS[step];
   const box = cropBox(state.image.width, state.image.height, state.focus.cx, state.focus.cy, zoom);
-  const scale = Math.min(canvas.width / box.w, canvas.height / box.h);
+
+  // Detail crops fill the frame (cover) so no space is wasted on empty ground.
+  // The final full-page step must show the whole leaf, so it fits instead.
+  const wholePage = step === EXPANSION_STEPS.length - 1;
+  const fit = Math.min(canvas.width / box.w, canvas.height / box.h);
+  const cover = Math.max(canvas.width / box.w, canvas.height / box.h);
+  const scale = wholePage ? fit : cover;
+
   const dw = box.w * scale;
   const dh = box.h * scale;
   ctx.drawImage(state.image, box.x, box.y, box.w, box.h,

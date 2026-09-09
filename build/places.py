@@ -6,14 +6,21 @@ from pathlib import Path
 NS = {"t": "http://www.tei-c.org/ns/1.0"}
 XML_ID = "{http://www.w3.org/XML/1998/namespace}id"
 
-# Ordered: first substring match wins. Derived from the measured distribution --
-# England 35%, Italy 21%, Germany 16%, France 12%, everything else 16%.
+# Ordered: first substring match wins.
+#
+# Egypt and Byzantium are separated out rather than swept into "Elsewhere":
+# together they are 160 of the 228 that would otherwise land there, and Egyptian
+# papyrus is the single most visually identifiable category in the corpus.
+# Telling a player it is "Elsewhere" would be both unfair and uninformative.
 _REGION_RULES = [
     ("England", ("england", "english", "britain", "wales", "scotland")),
     ("Italy", ("italia", "italy", "italian", "roma", "venice", "florence", "milan")),
     ("Germany", ("deutschland", "german", "austria", "osterreich", "österreich")),
     ("France", ("france", "french", "paris", "flanders", "flemish", "netherlands",
                 "países bajos", "belgium")),
+    ("Egypt", ("bahnas", "ḩībah", "hibah", "hermopolis", "egypt", "oxyrhynch",
+               "arsinoe", "fayum", "antinoop")),
+    ("Byzantium", ("constantinople", "istanbul", "byzan", "crete", "cyprus", "thessalon")),
 ]
 
 

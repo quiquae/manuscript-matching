@@ -6,7 +6,7 @@
  * are the reward for playing, not the test.
  */
 
-const THUMB = "/full/170,/0/default.jpg";
+const THUMB = "/full/200,/0/default.jpg";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (c) =>
@@ -17,12 +17,17 @@ function dateLabel(card) {
   return card.date_display || `${card.not_before}–${card.not_after}`;
 }
 
+/** "Elsewhere" is a bucket label, not a place. It must never appear in a sentence. */
+function regionPhrase(region) {
+  return region === "Elsewhere" ? "outside the main centres" : `in ${region}`;
+}
+
 /** Facts that only exist because we hold the whole corpus. */
 function corpusNotes(card, context) {
   const notes = [];
   const inRegion = context?.regions?.[card.region];
   if (inRegion > 1) {
-    notes.push(`${inRegion} manuscripts in this game were made in ${card.region}.`);
+    notes.push(`${inRegion} of the manuscripts here were made ${regionPhrase(card.region)}.`);
   }
   for (const owner of (card.owners ?? []).slice(0, 2)) {
     const n = context?.owners?.[owner.name];
@@ -62,7 +67,7 @@ export function renderReveal(el, card, { correct, gained, guessedYear, context, 
       ? `<ul class="corpus">${notes.map((n) => `<li>${escapeHtml(n)}</li>`).join("")}</ul>` : ""}
     ${lookalikes?.length ? `
       <div class="lookalikes">
-        <h3>What ${escapeHtml(card.region)}, ${escapeHtml(dateLabel(card))} looks like</h3>
+        <h3>What ${escapeHtml(card.region === "Elsewhere" ? "this date and place" : card.region)}, ${escapeHtml(dateLabel(card))} looks like</h3>
         <div class="strip">${lookalikes.map((p) =>
           `<img loading="lazy" src="${escapeHtml(p.iiif)}${THUMB}" alt="${escapeHtml(p.shelfmark)}">`
         ).join("")}</div>

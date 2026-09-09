@@ -29,6 +29,7 @@ const state = {
   expansions: 0,
   score: 0,
   lives: LIVES,
+  hard: false,
   rounds: [],
   image: null,
   focus: { cx: 0.5, cy: 0.5 },
@@ -189,8 +190,10 @@ async function showCard() {
   if (!puzzle) return finish();
 
   $("credit").textContent = puzzle.attribution || "";
-  $("expand").disabled = false;
-  $("expand-note").textContent = "";
+  $("expand").disabled = state.hard;
+  $("expand-note").textContent = state.hard
+    ? "Hard mode: one crop, no widening."
+    : "";
   state.image = null;
   draw();
   updateStats();
@@ -258,17 +261,19 @@ function start(mode) {
   state.lives = LIVES;
   state.rounds = [];
 
-  if (mode === "daily") {
-    state.deck = state.decks[todayKey()] || Object.values(state.decks)[0] || [];
-  } else {
+  // Hard plays the day's deck but forbids widening: one crop, one judgement.
+  state.hard = mode === "hard";
+  if (mode === "endless") {
     state.deck = [];
     extendEndlessDeck();
+  } else {
+    state.deck = state.decks[todayKey()] || Object.values(state.decks)[0] || [];
   }
 
   $("summary").hidden = true;
   $("reveal").hidden = true;
   $("stage").hidden = false;
-  for (const id of ["mode-daily", "mode-endless"]) {
+  for (const id of ["mode-daily", "mode-endless", "mode-hard"]) {
     const on = id === `mode-${mode}`;
     $(id).classList.toggle("is-active", on);
     $(id).setAttribute("aria-pressed", String(on));
@@ -277,7 +282,7 @@ function start(mode) {
 }
 
 $("expand").onclick = () => {
-  if (state.expansions >= EXPANSION_STEPS.length - 1) return;
+  if (state.hard || state.expansions >= EXPANSION_STEPS.length - 1) return;
   state.expansions += 1;
   const worth = Math.round((MULTIPLIERS[state.expansions] ?? 0) * 100);
   $("expand-note").textContent =
@@ -288,6 +293,7 @@ $("expand").onclick = () => {
 
 $("mode-daily").onclick = () => start("daily");
 $("mode-endless").onclick = () => start("endless");
+$("mode-hard").onclick = () => start("hard");
 
 async function boot() {
   try {

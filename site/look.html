@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Look Closer — read the page</title>
-<meta name="description" content="Interrogate a medieval manuscript page with a limited budget of looking, then commit to a reading.">
+<meta name="description" content="Uncover a medieval manuscript patch by patch, then say when and where it was made.">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -14,40 +14,49 @@
   <h1>Look Closer</h1>
   <p class="tagline">Five looks. Then tell me what you are holding.</p>
   <nav aria-label="Games">
-    <a class="mode" href="index.html">Ante Quem</a>
+    <a class="mode" href="index.html">Arrange</a>
     <a class="mode is-active" href="look.html" aria-current="page">Look Closer</a>
     <a class="mode" href="shelf.html">The Shelf</a>
   </nav>
 </header>
 
 <main>
-  <section id="stage">
+  <section id="stage" class="stage">
     <figure id="card">
-      <canvas id="view" width="520" height="640"
-              aria-label="A mostly hidden manuscript page. Click to uncover a patch."></canvas>
+      <div class="looking-glass">
+        <canvas id="view" width="520" height="660"
+                aria-label="A hidden manuscript page. Click anywhere to uncover a patch."></canvas>
+        <p id="hint" class="glass-hint">Click anywhere on the page to look there</p>
+      </div>
+      <p id="looks" class="looks" aria-live="polite"></p>
       <figcaption id="credit"></figcaption>
     </figure>
 
     <div id="controls">
-      <p id="prompt">Click the page to uncover a patch. Choose where carefully.</p>
-      <p id="budget" class="budget"></p>
-
       <form id="reading">
         <label class="field">
           <span>When was it made?</span>
-          <input type="range" id="year" min="-300" max="1600" step="10" value="1300">
-          <output id="year-out">1300</output>
+          <input type="range" id="year" min="-300" max="1600" step="10" value="1200">
+          <output id="year-out">1200</output>
         </label>
 
-        <fieldset class="field">
-          <legend>Where?</legend>
-          <div id="regions" class="choices"></div>
-        </fieldset>
+        <fieldset class="field"><legend>Where?</legend>
+          <div id="regions" class="choices"></div></fieldset>
 
-        <fieldset class="field">
-          <legend>What kind of book?</legend>
-          <div id="subjects" class="choices"></div>
-        </fieldset>
+        <fieldset class="field"><legend>What is it written on?</legend>
+          <div id="materials" class="choices"></div></fieldset>
+
+        <fieldset class="field"><legend>What language?</legend>
+          <div id="languages" class="choices"></div></fieldset>
+
+        <fieldset class="field"><legend>Is it decorated?</legend>
+          <div id="decorated" class="choices"></div></fieldset>
+
+        <label class="field" id="hand-field" hidden>
+          <span>What is the hand? <em>a palaeographer described this one</em></span>
+          <input type="text" id="hand" autocomplete="off" spellcheck="false"
+                 placeholder="anglicana, textualis, humanistic…">
+        </label>
 
         <button type="submit" id="commit">Commit to this reading</button>
       </form>

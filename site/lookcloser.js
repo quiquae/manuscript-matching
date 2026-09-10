@@ -1,33 +1,75 @@
 /**
- * Look Closer — the solitary game.
+ * Look Closer — one page, a handful of looks, then a reading.
  *
- * One page, mostly masked. You spend reveals to uncover patches, then commit to
- * a reading: when, where, and what kind of book. Where you choose to look is
- * the skill being tested, so restraint is what the scoring rewards.
+ * The axes are the ones the Bodleian's own catalogue facets on *and* that a
+ * page can actually show you: century, origin, material, language, decoration,
+ * and the hand itself. Subject was dropped: what a book is about is the one
+ * thing looking at it will not tell you.
  */
 
 /** Patches you may uncover before committing. */
 export const REVEAL_BUDGET = 5;
 
-/** Fraction of each dimension one patch uncovers. */
-export const PATCH_SIZE = 0.16;
+const PATCH_MIN = 0.10;
+const PATCH_MAX = 0.22;
+const PATCH_GROWTH_MS = 9000;
 
 const MAX_SCORE = 1000;
-const WEIGHTS = { date: 0.5, region: 0.25, subject: 0.25 };
+const TOLERANCE = 150;          // years outside the range before credit is nil
 
-/** Years outside the catalogued range before credit reaches zero. */
-const TOLERANCE = 150;
+const WEIGHTS = {
+  date: 0.34, region: 0.2, material: 0.16, language: 0.16, decorated: 0.14,
+};
+
+/** What a page can be made of. */
+export const MATERIALS = [
+  { id: "perg", label: "Parchment" },
+  { id: "chart", label: "Paper" },
+  { id: "papyrus", label: "Papyrus" },
+];
+
+/** The languages you have a real chance of recognising by eye. */
+export const LANGUAGES = [
+  { id: "la", label: "Latin" },
+  { id: "grc", label: "Greek" },
+  { id: "enm", label: "Middle English" },
+  { id: "fro", label: "Old French" },
+  { id: "it", label: "Italian" },
+  { id: "ang", label: "Old English" },
+];
 
 /**
- * Full credit anywhere inside the cataloguer's own range, decaying linearly
- * outside it. The range is the honest answer: these manuscripts are dated to
- * a quarter-century, not to a year, so demanding a single year would be
- * punishing the player for the catalogue's precision.
+ * Full credit anywhere inside the cataloguer's own range. These books are dated
+ * to a quarter-century, so demanding a single year would punish the player for
+ * the catalogue's precision rather than test their eye.
  */
 export function dateCredit(year, { not_before, not_after }) {
   if (year >= not_before && year <= not_after) return 1;
   const miss = year < not_before ? not_before - year : year - not_after;
   return Math.max(0, 1 - miss / TOLERANCE);
+}
+
+/**
+ * How big a patch is, given how long it has been open.
+ *
+ * Patches widen as you sit with them, so lingering shows you more — but the
+ * budget is fixed, so it never becomes a way to see the whole page.
+ */
+export function patchSizeAt(openMs) {
+  const t = Math.min(1, Math.max(0, openMs) / PATCH_GROWTH_MS);
+  return PATCH_MIN + (PATCH_MAX - PATCH_MIN) * t;
+}
+
+/** A square window centred on (cx, cy) in fractional coordinates, clamped to the page. */
+export function patchAt(cx, cy, imgW, imgH, size = PATCH_MIN) {
+  const w = Math.round(imgW * size);
+  const h = Math.round(imgH * size);
+  return {
+    x: Math.round(Math.min(Math.max(cx * imgW - w / 2, 0), imgW - w)),
+    y: Math.round(Math.min(Math.max(cy * imgH - h / 2, 0), imgH - h)),
+    w,
+    h,
+  };
 }
 
 /** Multiplier for how much of the page you needed. Never reaches zero. */
@@ -36,23 +78,62 @@ export function unrevealedPenalty(revealsUsed) {
   return 1 - (spent / REVEAL_BUDGET) * 0.5;
 }
 
-/** Score one committed reading across all three axes. */
 export function scoreReading(guess, truth, revealsUsed) {
-  const date = dateCredit(guess.year, truth);
-  const region = guess.region === truth.region ? 1 : 0;
-  const subject = (truth.subjects ?? []).includes(guess.subject) ? 1 : 0;
-  const accuracy = date * WEIGHTS.date + region * WEIGHTS.region + subject * WEIGHTS.subject;
+  const decorated = (truth.decoration ?? []).length > 0;
+  const accuracy =
+    dateCredit(guess.year, truth) * WEIGHTS.date
+    + (guess.region === truth.region ? WEIGHTS.region : 0)
+    + (guess.material === truth.material ? WEIGHTS.material : 0)
+    + (guess.language === truth.language ? WEIGHTS.language : 0)
+    + (guess.decorated === decorated ? WEIGHTS.decorated : 0);
   return Math.round(MAX_SCORE * accuracy * unrevealedPenalty(revealsUsed));
 }
 
-/** A square window centred on (cx, cy) in fractional coordinates, clamped to the page. */
-export function patchAt(cx, cy, imgW, imgH, size = PATCH_SIZE) {
-  const w = Math.round(imgW * size);
-  const h = Math.round(imgH * size);
+/* ---- the typed palaeography answer ------------------------------------- */
+
+/**
+ * Script names as cataloguers write them, with the spellings a player might
+ * reasonably type. Order matters only for reporting; matching is by set.
+ */
+const SCRIPTS = {
+  anglicana: ["anglicana"],
+  secretary: ["secretary"],
+  textualis: ["textualis", "textura", "gothic", "semiquadrata", "quadrata"],
+  protogothic: ["protogothic", "proto-gothic", "proto gothic"],
+  caroline: ["caroline", "carolingian"],
+  humanistic: ["humanistic", "humanist"],
+  cursive: ["cursiva", "cursive", "bastarda", "bâtarde", "batarde", "hybrida"],
+  insular: ["insular"],
+  uncial: ["uncial", "half-uncial", "majuscule"],
+  rotunda: ["rotunda"],
+  beneventan: ["beneventan"],
+  visigothic: ["visigothic"],
+};
+
+/** Which canonical scripts a cataloguer's description mentions. */
+function scriptsIn(text) {
+  const low = String(text ?? "").toLowerCase();
+  return Object.entries(SCRIPTS)
+    .filter(([, spellings]) => spellings.some((s) => low.includes(s)))
+    .map(([name]) => name);
+}
+
+/**
+ * Grade a typed script name against the cataloguer's own description.
+ *
+ * Auto-graded because the Bodleian already wrote the answer: 949 records carry
+ * a palaeographer's account of the hand, naming the very letterforms that date
+ * the page.
+ */
+export function gradeHand(typed, handNote) {
+  const present = scriptsIn(handNote);
+  if (!handNote || !present.length) {
+    return { gradable: false, hit: false, terms: [] };
+  }
+  const guessed = scriptsIn(typed);
   return {
-    x: Math.round(Math.min(Math.max(cx * imgW - w / 2, 0), imgW - w)),
-    y: Math.round(Math.min(Math.max(cy * imgH - h / 2, 0), imgH - h)),
-    w,
-    h,
+    gradable: true,
+    hit: guessed.some((g) => present.includes(g)),
+    terms: present,
   };
 }

@@ -22,22 +22,42 @@ function regionPhrase(region) {
   return region === "Elsewhere" ? "outside the main centres" : `in ${region}`;
 }
 
-/** Facts that only exist because we hold the whole corpus. */
+/**
+ * Facts that only exist because we hold the whole corpus.
+ *
+ * Only surprising ones. "416 of these were made in Italy" is a bulk count and
+ * tells a reader nothing; scarcity and named collectors do.
+ */
+const RARE = 40;              // at or below this, a count is worth remarking on
+const BIG_COLLECTOR = 100;    // above this, an owner is a story in themselves
+
 function corpusNotes(card, context) {
   const notes = [];
-  const inRegion = context?.regions?.[card.region];
-  if (inRegion > 1) {
-    notes.push(`${inRegion} of the manuscripts here were made ${regionPhrase(card.region)}.`);
+
+  // Scarcity within its own region and half-century.
+  const half = Math.floor((card.not_before ?? 0) / 50) * 50;
+  const peers = context?.buckets?.[`${card.region}|${half}`];
+  if (peers && peers <= RARE) {
+    notes.push(peers === 1
+      ? `The only manuscript here made ${regionPhrase(card.region)} in these fifty years.`
+      : `One of only ${peers} here made ${regionPhrase(card.region)} in these fifty years.`);
   }
+
+  // Collectors big enough to be a fact about the library itself.
   for (const owner of (card.owners ?? []).slice(0, 2)) {
     const n = context?.owners?.[owner.name];
-    if (n > 1) notes.push(`${owner.name} owned ${n} of the manuscripts here.`);
+    if (n >= BIG_COLLECTOR) {
+      notes.push(`${owner.name} owned ${n.toLocaleString()} of the manuscripts in this game.`);
+    }
   }
-  for (const subject of (card.subjects ?? []).slice(0, 1)) {
-    const n = context?.subjects?.[subject];
-    if (n > 1) notes.push(`${n} of these books were catalogued under “${subject.replace(/_/g, " ")}”.`);
+
+  // A language you rarely meet.
+  const langCount = context?.languages?.[card.language];
+  if (langCount && langCount <= RARE) {
+    notes.push(`One of only ${langCount} here in this language.`);
   }
-  return notes;
+
+  return notes.slice(0, 3);
 }
 
 export function renderReveal(el, card, { correct, gained, guessedYear, context, lookalikes, onNext }) {
@@ -68,9 +88,14 @@ export function renderReveal(el, card, { correct, gained, guessedYear, context, 
     ${lookalikes?.length ? `
       <div class="lookalikes">
         <h3>What ${escapeHtml(card.region === "Elsewhere" ? "this date and place" : card.region)}, ${escapeHtml(dateLabel(card))} looks like</h3>
-        <div class="strip">${lookalikes.map((p) =>
-          `<img loading="lazy" src="${escapeHtml(p.iiif)}${THUMB}" alt="${escapeHtml(p.shelfmark)}">`
-        ).join("")}</div>
+        <p class="note">Every one of these is a real manuscript. Open any of them.</p>
+        <div class="strip">${lookalikes.map((p) => `
+          <a class="strip-item" href="${escapeHtml(p.catalogue)}" target="_blank" rel="noopener"
+             title="${escapeHtml(p.shelfmark)} — ${escapeHtml(dateLabel(p))}">
+            <img loading="lazy" src="${escapeHtml(p.iiif)}${THUMB}" alt="${escapeHtml(p.shelfmark)}">
+            <span class="strip-shelf">${escapeHtml(p.shelfmark || p.id)}</span>
+            <span class="strip-when">${escapeHtml(dateLabel(p))}</span>
+          </a>`).join("")}</div>
       </div>` : ""}
     <p class="links">
       <a href="${escapeHtml(card.catalogue)}" target="_blank" rel="noopener">See the catalogue record</a>

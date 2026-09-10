@@ -123,11 +123,6 @@ footer { max-width: 64rem; margin: 3.5rem auto 0; border-top: 1px solid var(--ru
 .submodes { margin-top: .5rem; }
 
 /* ---- Look Closer -------------------------------------------------------- */
-#view { cursor: crosshair; }
-.budget {
-  font-size: .82rem; color: var(--ink-soft); margin: .4rem 0 1.25rem;
-  padding-bottom: .75rem; border-bottom: 1px solid var(--rule);
-}
 .field { display: block; border: 0; padding: 0; margin: 0 0 1.25rem; }
 .field > span, .field legend {
   display: block; font-size: .68rem; text-transform: uppercase;
@@ -248,3 +243,59 @@ main section { margin-top: 2rem; }
 }
 #notes:focus-visible { outline: 2px solid var(--rubric); outline-offset: 1px; }
 #notes::placeholder { color: var(--ink-soft); opacity: .8; font-style: italic; }
+
+/* ---- look-alike strip: each one opens its own record -------------------- */
+.strip { align-items: flex-start; }
+.strip-item {
+  display: flex; flex-direction: column; gap: .15rem; flex: 0 0 auto;
+  text-decoration: none; color: inherit; max-width: 8rem;
+}
+.strip-item img {
+  height: 120px; width: auto; border: 1px solid var(--rule); background: #efe9df;
+  transition: border-color .15s ease, transform .15s ease;
+}
+.strip-item:hover img { border-color: var(--rubric); transform: translateY(-2px); }
+.strip-item:focus-visible img { outline: 2px solid var(--rubric); outline-offset: 2px; }
+.strip-shelf { font-size: .68rem; }
+.strip-when { font-size: .64rem; color: var(--ink-soft); }
+@media (prefers-reduced-motion: reduce) { .strip-item img { transition: none; } }
+
+
+/* ---- Look Closer: the looking glass ------------------------------------- */
+.stage { display: flex; gap: 2.5rem; align-items: flex-start; flex-wrap: wrap; }
+.stage #card { margin: 0; flex: 0 0 auto; }
+.stage #controls { flex: 1 1 18rem; min-width: 15rem; }
+
+.looking-glass { position: relative; display: inline-block; }
+.looking-glass #view {
+  display: block; max-width: 100%; height: auto;
+  border: 1px solid var(--ink); background: #1c1712;
+  cursor: zoom-in; box-shadow: var(--shadow);
+}
+.looking-glass #view:hover { border-color: var(--rubric); }
+
+.glass-hint {
+  position: absolute; inset: auto 0 1.25rem 0; margin: 0;
+  text-align: center; pointer-events: none;
+  font-size: .8rem; letter-spacing: .04em; font-style: italic;
+  color: rgb(244 239 228 / 85%); text-shadow: 0 1px 3px rgb(0 0 0 / 70%);
+}
+
+.looks {
+  margin: .55rem 0 .3rem; font-size: .82rem; color: var(--ink-soft);
+  display: flex; align-items: center; gap: .5rem;
+}
+.dots { color: var(--rubric); letter-spacing: .18em; font-size: .78rem; }
+
+#hand {
+  width: 100%; font: inherit; padding: .5rem .65rem;
+  background: var(--card); color: var(--ink);
+  border: 1px solid var(--rule); border-radius: 2px;
+}
+#hand:focus-visible { outline: 2px solid var(--rubric); outline-offset: 1px; }
+#hand-field span em {
+  font-style: italic; text-transform: none; letter-spacing: 0;
+}
+
+/* Chips carry real labels now, so stop force-capitalising them. */
+.chip { text-transform: none; }

@@ -9,6 +9,7 @@ import {
   LANGUAGES, MATERIALS, REVEAL_BUDGET, gradeHand, patchAt, patchSizeAt,
   scoreReading, unrevealedPenalty,
 } from "./lookcloser.js";
+import { isReadable, parchmentFraction } from "./readable.js";
 import { renderReveal } from "./reveal.js";
 import { createShelf } from "./shelf.js";
 
@@ -16,6 +17,9 @@ const DATA = "data/";
 const IIIF_WIDTH = 682;
 const REGIONS = ["England", "France", "Italy", "Germany", "Egypt", "Byzantium", "Elsewhere"];
 const VEIL = 0.045;            // just enough to read the shape of the object
+
+/** Readers who ask for less motion get each patch at its final size at once. */
+const stillness = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 const $ = (id) => document.getElementById(id);
 const shelf = createShelf(window.localStorage);
@@ -51,12 +55,13 @@ function draw() {
   ctx.drawImage(state.image, fit.x, fit.y, fit.w, fit.h);
   ctx.globalAlpha = 1;
 
+  const still = stillness.matches;
   let growing = false;
   const now = performance.now();
   for (const patch of state.patches) {
-    const age = now - patch.openedAt;
+    const age = still ? Infinity : now - patch.openedAt;
     const size = patchSizeAt(age);
-    if (size < patchSizeAt(Infinity)) growing = true;
+    if (!still && size < patchSizeAt(Infinity)) growing = true;
     const p = patchAt(patch.cx, patch.cy, state.image.width, state.image.height, size);
     const x = fit.x + p.x * fit.scale;
     const y = fit.y + p.y * fit.scale;
@@ -140,6 +145,21 @@ async function nextCard() {
   } catch {
     return nextCard();                 // a dead image must never stall the game
   }
+
+  // Some photographs are of a conservation tray rather than a readable leaf,
+  // and the manifest still labels them as folios. Draw again.
+  const probe = document.createElement("canvas");
+  probe.width = 64;
+  probe.height = Math.max(1, Math.round((state.image.height / state.image.width) * 64));
+  const pctx = probe.getContext("2d", { willReadFrequently: true });
+  pctx.drawImage(state.image, 0, 0, probe.width, probe.height);
+  const parchment = parchmentFraction(pctx.getImageData(0, 0, probe.width, probe.height));
+  if (!isReadable(parchment, state.card.material) && (state.retries ?? 0) < 6) {
+    state.retries = (state.retries ?? 0) + 1;
+    return nextCard();
+  }
+  state.retries = 0;
+
   draw();
 }
 

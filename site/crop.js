@@ -53,32 +53,45 @@ export function focusPoint(imageData, gridN = 8) {
       const y0 = Math.floor((gy * height) / gridN);
       const y1 = Math.floor(((gy + 1) * height) / gridN);
 
+      const lumAt = (x, y) => {
+        const i = (y * width + x) * 4;
+        return 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+      };
+
       let sum = 0;
-      let sumSq = 0;
       let warm = 0;
+      let gradient = 0;
+      let steps = 0;
       let n = 0;
       for (let y = y0; y < y1; y++) {
         for (let x = x0; x < x1; x++) {
           const i = (y * width + x) * 4;
-          const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+          const lum = lumAt(x, y);
           sum += lum;
-          sumSq += lum * lum;
           warm += data[i] - data[i + 2];   // red minus blue
           n++;
+          // Local gradient, not variance. A page of writing is thousands of
+          // small transitions; the edge between a leaf and its black backing,
+          // or the side of a conservation ruler, is one enormous transition
+          // with flat ground either side. Variance rewards the edge, mean
+          // absolute gradient rewards the writing.
+          if (x + 1 < x1) { gradient += Math.abs(lum - lumAt(x + 1, y)); steps++; }
+          if (y + 1 < y1) { gradient += Math.abs(lum - lumAt(x, y + 1)); steps++; }
         }
       }
       if (!n) continue;
       const mean = sum / n;
-      const variance = sumSq / n - mean ** 2;
+      const energy = steps ? gradient / steps : 0;
 
       // Parchment and iron-gall ink are warm: red runs well ahead of blue.
       // Conservation rulers, colour targets and grey mounts are neutral, so
       // this is what keeps the opening crop off the apparatus rather than the
       // manuscript. Neutral pages still score, just lower.
-      const warmth = 0.35 + 0.65 * Math.min(1, Math.max(0, warm / n / 30));
+      // Neutral regions are apparatus, not manuscript, so the floor is low.
+      const warmth = 0.12 + 0.88 * Math.min(1, Math.max(0, warm / n / 30));
 
       const weight = centre(gx) * centre(gy) * midtone(mean) * warmth;
-      const score = Math.sqrt(variance) * weight;
+      const score = energy * weight;
       if (score > best.score) best = { score, gx, gy };
     }
   }

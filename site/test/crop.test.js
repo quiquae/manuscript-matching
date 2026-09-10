@@ -117,3 +117,70 @@ test("warmth preference does not break a genuinely grey manuscript", () => {
   const { cx, cy } = focusPoint({ data: px, width: W, height: H }, 4);
   assert.ok(cx > 0.4 && cy > 0.4, `focus ${cx},${cy} should still find the ink`);
 });
+
+/* ---- rejecting photographs that are not readable pages ------------------ */
+
+import { READABILITY_FLOOR, isReadable, parchmentFraction } from "../readable.js";
+
+const solid = (W, H, r, g, b) => {
+  const px = new Uint8ClampedArray(W * H * 4);
+  for (let i = 0; i < px.length; i += 4) {
+    px[i] = r; px[i + 1] = g; px[i + 2] = b; px[i + 3] = 255;
+  }
+  return { data: px, width: W, height: H };
+};
+
+test("a warm light page reads as almost entirely parchment", () => {
+  assert.ok(parchmentFraction(solid(16, 16, 215, 200, 165)) > 0.9);
+});
+
+test("a dark object reads as almost no parchment", () => {
+  assert.ok(parchmentFraction(solid(16, 16, 55, 45, 35)) < 0.05);
+});
+
+test("a neutral grey card is not parchment however light it is", () => {
+  assert.ok(parchmentFraction(solid(16, 16, 200, 200, 200)) < 0.05);
+});
+
+test("thresholds are material-aware because papyrus is genuinely darker", () => {
+  assert.ok(READABILITY_FLOOR.papyrus < READABILITY_FLOOR.default);
+});
+
+test("measured values from real images fall the right side of the floor", () => {
+  // Sampled 2026-09-09 from the live corpus.
+  assert.ok(!isReadable(0.078, "papyrus"), "carbonised rolls in a tray must be rejected");
+  assert.ok(isReadable(0.120, "papyrus"), "a dark but readable papyrus must be kept");
+  assert.ok(!isReadable(0.124, "perg"), "a parchment page this dark is not readable");
+  assert.ok(isReadable(0.218, "perg"), "a legible parchment page must be kept");
+  assert.ok(isReadable(0.950, "perg"));
+});
+
+test("an unknown material falls back to the stricter floor", () => {
+  assert.equal(isReadable(0.15, "unobtainium"), isReadable(0.15, "perg"));
+});
+
+test("focus prefers dense text over a single hard edge", () => {
+  // Left interior: one hard parchment-to-black edge. Huge variance, one
+  // transition, no information.
+  // Right interior: warm parchment with many fine ink strokes. Lower variance,
+  // far more local gradient -- this is what a page of writing looks like.
+  const W = 24, H = 24;
+  const px = new Uint8ClampedArray(W * H * 4);
+  const put = (x, y, r, g, b) => {
+    const i = (y * W + x) * 4;
+    px[i] = r; px[i + 1] = g; px[i + 2] = b; px[i + 3] = 255;
+  };
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (x < W / 2) {
+        const black = x > 8;                       // one edge at x=8
+        put(x, y, black ? 12 : 220, black ? 10 : 205, black ? 8 : 172);
+      } else {
+        const stroke = x % 2 === 0 || y % 3 === 0; // dense strokes
+        put(x, y, stroke ? 95 : 220, stroke ? 70 : 205, stroke ? 45 : 172);
+      }
+    }
+  }
+  const { cx } = focusPoint({ data: px, width: W, height: H }, 6);
+  assert.ok(cx > 0.5, `cx ${cx} landed on the backing edge rather than the writing`);
+});

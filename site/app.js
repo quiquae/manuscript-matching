@@ -8,6 +8,7 @@
  */
 import { COLLECTIONS, DIFFICULTIES, buildSet } from "./deck.js";
 import { cropBox, EXPANSION_STEPS, focusPoint } from "./crop.js";
+import { isReadable, parchmentFraction } from "./readable.js";
 import { orderResult } from "./order.js";
 import { MULTIPLIERS } from "./scoring.js";
 import { renderReveal } from "./reveal.js";
@@ -15,8 +16,17 @@ import { createShelf } from "./shelf.js";
 
 const DATA = "data/";
 const IIIF_WIDTH = 682;
-const CARD_W = 190;
-const CARD_H = 250;
+// Arrange is a comparison game: if two manuscripts do not fit on screen at once
+// there is nothing to compare. Cards shrink on narrow viewports rather than
+// forcing a scroll between every pair.
+const CARD_SIZES = [
+  { upTo: 420, w: 116, h: 152 },
+  { upTo: 700, w: 150, h: 196 },
+  { upTo: Infinity, w: 190, h: 250 },
+];
+
+const cardSize = () =>
+  CARD_SIZES.find((s) => window.innerWidth <= s.upTo) ?? CARD_SIZES.at(-1);
 
 const $ = (id) => document.getElementById(id);
 const shelf = createShelf(window.localStorage);
@@ -53,13 +63,15 @@ function loadImage(puzzle) {
   return promise;
 }
 
-function detectFocus(img) {
+/** One downscaled read of the image, used for both focus and readability. */
+function inspect(img) {
   const c = document.createElement("canvas");
   c.width = 64;
   c.height = Math.max(1, Math.round((img.height / img.width) * 64));
   const ctx = c.getContext("2d", { willReadFrequently: true });
   ctx.drawImage(img, 0, 0, c.width, c.height);
-  return focusPoint(ctx.getImageData(0, 0, c.width, c.height), 8);
+  const pixels = ctx.getImageData(0, 0, c.width, c.height);
+  return { focus: focusPoint(pixels, 8), parchment: parchmentFraction(pixels) };
 }
 
 function paint(card) {
@@ -243,26 +255,49 @@ async function addCards(count) {
     keep: kept,
   });
 
-  const fresh = chosen.slice(kept.length);
+  let fresh = chosen.slice(kept.length);
   if (!fresh.length) {
     $("prompt").textContent = "No more manuscripts fit this collection at this difficulty.";
     return;
   }
 
   $("prompt").textContent = "Fetching pages…";
-  const loaded = await Promise.all(fresh.map(async (puzzle) => {
+
+  const take = async (puzzle) => {
     try {
       const image = await loadImage(puzzle);
-      return { puzzle, image, focus: detectFocus(image), zoom: 0, canvas: null };
+      const { focus, parchment } = inspect(image);
+      // Conservation trays, carbonised rolls and rulers are catalogued as
+      // folios, so the only way to spot them is to look at the photograph.
+      if (!isReadable(parchment, puzzle.material)) return null;
+      return { puzzle, image, focus, zoom: 0, canvas: null };
     } catch {
       return null;                    // a dead image must never stall a round
     }
-  }));
+  };
+
+  let loaded = await Promise.all(fresh.map(take));
+  const rejected = new Set(
+    fresh.filter((p, i) => !loaded[i]).map((p) => p.id));
+
+  // Draw replacements for anything unusable, once.
+  if (rejected.size) {
+    const spare = buildSet(pool.filter((p) => !rejected.has(p.id)), {
+      size: wanted,
+      seed: `retry-${Date.now()}`,
+      startGap: state.difficulty.startGap,
+      floor: state.difficulty.floor,
+      keep: [...kept, ...loaded.filter(Boolean).map((c) => c.puzzle)],
+    });
+    const extra = spare.slice(kept.length + loaded.filter(Boolean).length);
+    loaded = [...loaded.filter(Boolean), ...(await Promise.all(extra.map(take)))];
+  }
 
   for (const card of loaded.filter(Boolean)) {
     card.canvas = document.createElement("canvas");
-    card.canvas.width = CARD_W;
-    card.canvas.height = CARD_H;
+    const size = cardSize();
+    card.canvas.width = size.w;
+    card.canvas.height = size.h;
     paint(card);
     state.cards.push(card);
   }
@@ -386,6 +421,19 @@ function chips(el, items, current, onPick) {
     el.append(chip);
   }
 }
+
+/** Re-cut the canvases when the viewport crosses a size band. */
+let lastBand = cardSize().w;
+window.addEventListener("resize", () => {
+  const size = cardSize();
+  if (size.w === lastBand) return;
+  lastBand = size.w;
+  for (const card of state.cards) {
+    card.canvas.width = size.w;
+    card.canvas.height = size.h;
+    paint(card);
+  }
+});
 
 $("check").onclick = check;
 $("more").onclick = () => addCards(state.difficulty.grow);

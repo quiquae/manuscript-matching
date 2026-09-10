@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "ante-quem",
+      "name": "manuscript-matching",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8020", "--directory", "site"],
+      "runtimeArgs": ["scripts/serve.py", "8020", "site"],
       "port": 8020
     }
   ]

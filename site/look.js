@@ -19,8 +19,10 @@ import { createShelf } from "./shelf.js";
 const DATA = "data/";
 const IIIF_WIDTH = 682;
 const REGIONS = ["England", "France", "Italy", "Germany", "Egypt", "Byzantium", "Elsewhere"];
-const VEIL = 0.045;            // just enough to read the shape of the object
-const OPENING_ZOOM = 4.5;      // how far in the first look starts
+// Near-black. A trace of the page is left so you can tell a roll from a codex
+// and know which way is up, but nothing on it is legible.
+const VEIL = 0.012;
+const OPENING_ZOOM = 9;        // how far in the first look starts
 
 /** Readers who ask for less motion get each patch at its final size at once. */
 const stillness = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -57,13 +59,13 @@ function placement(view, img) {
   return { x: view.x, y: view.y, w: img.width * view.scale, h: img.height * view.scale };
 }
 
-function setView(next) {
+function setView(next, options) {
   const canvas = $("view");
   state.view = clampView(next, canvas, {
     width: state.image.width * next.scale,
     height: state.image.height * next.scale,
   });
-  scheduleDetail();
+  scheduleDetail(options);
   updateZoom();
   draw();
 }
@@ -91,10 +93,15 @@ function draw() {
   };
 
   // The whole leaf, barely there: enough to tell a roll from a codex and to
-  // see where the text block sits, not enough to read a letter.
+  // know which way is up, not enough to read anything.
   ctx.globalAlpha = VEIL;
   paintPage();
   ctx.globalAlpha = 1;
+
+  // Where the leaf ends, so panning in the dark has a horizon.
+  ctx.strokeStyle = "rgba(244,239,228,.14)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(fit.x + 0.5, fit.y + 0.5, fit.w - 1, fit.h - 1);
 
   const still = stillness.matches;
   let growing = false;
@@ -134,11 +141,11 @@ function draw() {
  * Debounced, keyed coarsely, and entirely optional: if it never arrives the
  * upscaled page stays on screen and the game carries on.
  */
-function scheduleDetail() {
+function scheduleDetail({ immediate = false } = {}) {
   clearTimeout(state.detailTimer);
   if (!state.image || !state.card || state.view.scale < DETAIL_FROM_SCALE) return;
 
-  state.detailTimer = setTimeout(() => {
+  const fetchNow = () => {
     const canvas = $("view");
     const region = visiblePageRegion(canvas, state.view, state.image);
     const key = detailKey(region, state.image);
@@ -155,7 +162,10 @@ function scheduleDetail() {
     img.onerror = () => { if (state.detailKey === key) state.detailKey = null; };
     img.src = detailUrl(state.card.iiif, region, state.image,
                         Math.round(canvas.width * window.devicePixelRatio));
-  }, 350);
+  };
+
+  if (immediate) fetchNow();
+  else state.detailTimer = setTimeout(fetchNow, 350);
 }
 
 /* ------------------------------------------------------------------ state */
@@ -263,7 +273,7 @@ async function nextCard() {
     scale: state.view.scale,
     x: canvas.width / 2 - target.x * state.view.scale,
     y: canvas.height / 2 - target.y * state.view.scale,
-  });
+  }, { immediate: true });
   updateLooks();
 }
 

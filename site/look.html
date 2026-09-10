@@ -25,9 +25,15 @@
   <section id="stage" class="stage">
     <figure id="card">
       <div class="looking-glass">
-        <canvas id="view" width="520" height="660"
-                aria-label="A hidden manuscript page. Click anywhere to uncover a patch."></canvas>
-        <p id="hint" class="glass-hint">Click anywhere on the page to look there</p>
+        <canvas id="view" width="520" height="660" tabindex="0"
+                aria-label="A manuscript page under a veil. Drag to move, scroll to zoom, click to uncover a patch. Arrow keys pan, plus and minus zoom, Enter uncovers."></canvas>
+        <p id="hint" class="glass-hint">Drag to move · scroll to zoom · click to look there</p>
+        <div class="zoom-controls" role="group" aria-label="Zoom">
+          <button type="button" id="zoom-out" aria-label="Zoom out">−</button>
+          <span id="zoom-level" aria-live="off">1.0×</span>
+          <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+          <button type="button" id="zoom-fit" aria-label="Show the whole page">Whole page</button>
+        </div>
       </div>
       <p id="looks" class="looks" aria-live="polite"></p>
       <figcaption id="credit"></figcaption>

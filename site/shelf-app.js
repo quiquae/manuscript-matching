@@ -38,14 +38,17 @@ function renderBars(el, rows, label) {
 
 /**
  * Fifteen rows reading 0/1 bury the four centuries that hold most of the
- * corpus. Everything below the threshold becomes a single row.
+ * corpus. Everything earlier than the fold becomes a single row.
+ *
+ * Folded by date, not by count: keying on count left "200s" sitting below a
+ * row labelled "Before 700", which is nonsense to read.
  */
-const THIN = 25;
+const FOLD_BEFORE = 700;
 
 function foldThinCenturies(rows) {
-  const thin = rows.filter((r) => r.total < THIN);
-  const rest = rows.filter((r) => r.total >= THIN);
-  if (thin.length < 3) return rows;
+  const thin = rows.filter((r) => r.key < FOLD_BEFORE);
+  const rest = rows.filter((r) => r.key >= FOLD_BEFORE);
+  if (thin.length < 2) return rows;
   const merged = {
     key: EARLY,
     seen: thin.reduce((n, r) => n + r.seen, 0),

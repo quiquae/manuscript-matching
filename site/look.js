@@ -9,14 +9,18 @@ import {
   LANGUAGES, MATERIALS, REVEAL_BUDGET, gradeHand, patchAt, patchSizeAt,
   scoreReading, unrevealedPenalty,
 } from "./lookcloser.js";
+import { focusPoint } from "./crop.js";
+import { DETAIL_FROM_SCALE, detailKey, detailUrl, visiblePageRegion } from "./detail.js";
 import { isReadable, parchmentFraction } from "./readable.js";
 import { renderReveal } from "./reveal.js";
+import { MAX_SCALE, MIN_SCALE, clampView, fitScale, screenToPage, zoomAt } from "./viewport.js";
 import { createShelf } from "./shelf.js";
 
 const DATA = "data/";
 const IIIF_WIDTH = 682;
 const REGIONS = ["England", "France", "Italy", "Germany", "Egypt", "Byzantium", "Elsewhere"];
 const VEIL = 0.045;            // just enough to read the shape of the object
+const OPENING_ZOOM = 4.5;      // how far in the first look starts
 
 /** Readers who ask for less motion get each patch at its final size at once. */
 const stillness = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -28,16 +32,40 @@ const state = {
   puzzles: [], byId: new Map(), context: {}, lookalikes: {},
   card: null, image: null, patches: [],
   score: 0, read: 0, frame: null,
+  view: null,            // { scale, x, y } in canvas pixels
+  hovered: -1,           // index of the patch under the pointer
+  detail: null,          // { key, image } — a sharp crop of the zoomed region
+  detailKey: null,       // the key currently being fetched
+  detailTimer: null,
   choice: { region: null, material: null, language: null, decorated: null },
 };
 
 /* --------------------------------------------------------------- drawing */
 
-function fitBox(canvas, img) {
-  const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
-  const w = img.width * scale;
-  const h = img.height * scale;
-  return { x: (canvas.width - w) / 2, y: (canvas.height - h) / 2, w, h, scale };
+/** The view that shows the whole page, centred. */
+function fittedView(canvas, img) {
+  const scale = fitScale(canvas, img);
+  return {
+    scale,
+    x: (canvas.width - img.width * scale) / 2,
+    y: (canvas.height - img.height * scale) / 2,
+  };
+}
+
+/** Where the page currently sits on the canvas, in canvas pixels. */
+function placement(view, img) {
+  return { x: view.x, y: view.y, w: img.width * view.scale, h: img.height * view.scale };
+}
+
+function setView(next) {
+  const canvas = $("view");
+  state.view = clampView(next, canvas, {
+    width: state.image.width * next.scale,
+    height: state.image.height * next.scale,
+  });
+  scheduleDetail();
+  updateZoom();
+  draw();
 }
 
 function draw() {
@@ -47,41 +75,87 @@ function draw() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   if (!state.image) return;
 
-  const fit = fitBox(canvas, state.image);
+  const fit = placement(state.view, state.image);
+
+  /** Draw the page, using the sharp crop wherever we have one. */
+  const paintPage = () => {
+    ctx.drawImage(state.image, fit.x, fit.y, fit.w, fit.h);
+    const d = state.detail;
+    if (d && d.key === detailKey(visiblePageRegion(canvas, state.view, state.image), state.image)) {
+      ctx.drawImage(d.image,
+        fit.x + d.region.x * state.view.scale,
+        fit.y + d.region.y * state.view.scale,
+        d.region.w * state.view.scale,
+        d.region.h * state.view.scale);
+    }
+  };
 
   // The whole leaf, barely there: enough to tell a roll from a codex and to
   // see where the text block sits, not enough to read a letter.
   ctx.globalAlpha = VEIL;
-  ctx.drawImage(state.image, fit.x, fit.y, fit.w, fit.h);
+  paintPage();
   ctx.globalAlpha = 1;
 
   const still = stillness.matches;
   let growing = false;
   const now = performance.now();
-  for (const patch of state.patches) {
+  state.patches.forEach((patch, index) => {
     const age = still ? Infinity : now - patch.openedAt;
-    const size = patchSizeAt(age);
-    if (!still && size < patchSizeAt(Infinity)) growing = true;
+    const hovered = index === state.hovered;
+    const size = patchSizeAt(age) * (hovered ? 1.12 : 1);
+    if (!still && patchSizeAt(age) < patchSizeAt(Infinity)) growing = true;
     const p = patchAt(patch.cx, patch.cy, state.image.width, state.image.height, size);
-    const x = fit.x + p.x * fit.scale;
-    const y = fit.y + p.y * fit.scale;
-    const w = p.w * fit.scale;
-    const h = p.h * fit.scale;
+    const x = fit.x + p.x * state.view.scale;
+    const y = fit.y + p.y * state.view.scale;
+    const w = p.w * state.view.scale;
+    const h = p.h * state.view.scale;
 
     ctx.save();
     ctx.beginPath();
     ctx.rect(x, y, w, h);
     ctx.clip();
-    ctx.drawImage(state.image, fit.x, fit.y, fit.w, fit.h);
+    paintPage();
     ctx.restore();
 
-    ctx.strokeStyle = "rgba(244,239,228,.55)";
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = hovered ? "rgba(158,43,37,.95)" : "rgba(244,239,228,.55)";
+    ctx.lineWidth = hovered ? 2 : 1;
     ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-  }
+  });
 
   cancelAnimationFrame(state.frame);
   if (growing) state.frame = requestAnimationFrame(draw);
+}
+
+/* ---------------------------------------------------------- sharp detail */
+
+/**
+ * Ask IIIF for a crop of whatever is on screen, once the reader has zoomed
+ * past the point where the downloaded page still has pixels to spare.
+ * Debounced, keyed coarsely, and entirely optional: if it never arrives the
+ * upscaled page stays on screen and the game carries on.
+ */
+function scheduleDetail() {
+  clearTimeout(state.detailTimer);
+  if (!state.image || !state.card || state.view.scale < DETAIL_FROM_SCALE) return;
+
+  state.detailTimer = setTimeout(() => {
+    const canvas = $("view");
+    const region = visiblePageRegion(canvas, state.view, state.image);
+    const key = detailKey(region, state.image);
+    if (key === state.detailKey || (state.detail && state.detail.key === key)) return;
+    state.detailKey = key;
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      if (state.detailKey !== key) return;      // the reader moved on
+      state.detail = { key, region, image: img };
+      draw();
+    };
+    img.onerror = () => { if (state.detailKey === key) state.detailKey = null; };
+    img.src = detailUrl(state.card.iiif, region, state.image,
+                        Math.round(canvas.width * window.devicePixelRatio));
+  }, 350);
 }
 
 /* ------------------------------------------------------------------ state */
@@ -93,6 +167,15 @@ function updateLooks() {
     `<span class="dots">${dots}</span> ${left} look${left === 1 ? "" : "s"} left`
     + ` &middot; worth ${Math.round(unrevealedPenalty(state.patches.length) * 100)}%`;
   $("hint").hidden = state.patches.length > 0;
+}
+
+/** The zoom readout tracks the view, so it must be refreshed by setView. */
+function updateZoom() {
+  const fit = state.image ? fitScale($("view"), state.image) : 1;
+  const z = state.view ? state.view.scale / fit : 1;
+  $("zoom-level").textContent = `${z.toFixed(1)}×`;
+  $("zoom-out").disabled = !state.view || state.view.scale <= fit + 1e-6;
+  $("zoom-in").disabled = !state.view || state.view.scale >= MAX_SCALE - 1e-6;
 }
 
 function chipRow(el, items, onPick) {
@@ -123,6 +206,8 @@ async function nextCard() {
   $("reveal").hidden = true;
   $("reading").hidden = false;
   state.patches = [];
+  state.detail = null;
+  state.detailKey = null;
   state.choice = { region: null, material: null, language: null, decorated: null };
   document.querySelectorAll(".chip.is-chosen").forEach((c) => c.classList.remove("is-chosen"));
   $("hand").value = "";
@@ -153,31 +238,133 @@ async function nextCard() {
   probe.height = Math.max(1, Math.round((state.image.height / state.image.width) * 64));
   const pctx = probe.getContext("2d", { willReadFrequently: true });
   pctx.drawImage(state.image, 0, 0, probe.width, probe.height);
-  const parchment = parchmentFraction(pctx.getImageData(0, 0, probe.width, probe.height));
+  const pixels = pctx.getImageData(0, 0, probe.width, probe.height);
+  const parchment = parchmentFraction(pixels);
   if (!isReadable(parchment, state.card.material) && (state.retries ?? 0) < 6) {
     state.retries = (state.retries ?? 0) + 1;
     return nextCard();
   }
   state.retries = 0;
 
-  draw();
+  // Open close in, on the busiest part of the page, with the first look
+  // already spent there. The game is called Look Closer: starting on the whole
+  // leaf shows you a shape, and starting on the script shows you the evidence.
+  const focus = focusPoint(pixels, 8);
+  const canvas = $("view");
+  const fitted = fittedView(canvas, state.image);
+  state.patches = [{ cx: focus.cx, cy: focus.cy, openedAt: performance.now() }];
+  state.view = fitted;
+  setView(zoomAt(fitted,
+    { x: canvas.width / 2, y: canvas.height / 2 },
+    fitted.scale * OPENING_ZOOM));
+  // Centre the opening zoom on the detail rather than the middle of the page.
+  const target = { x: focus.cx * state.image.width, y: focus.cy * state.image.height };
+  setView({
+    scale: state.view.scale,
+    x: canvas.width / 2 - target.x * state.view.scale,
+    y: canvas.height / 2 - target.y * state.view.scale,
+  });
+  updateLooks();
 }
 
-$("view").onclick = (event) => {
-  if (!state.image || state.patches.length >= REVEAL_BUDGET) return;
+/* -------------------------------------------------------- pan, zoom, tap */
+
+/** Pointer position in canvas pixels, whatever the element is scaled to. */
+function canvasPoint(event) {
   const canvas = $("view");
   const rect = canvas.getBoundingClientRect();
-  const fit = fitBox(canvas, state.image);
-  const x = ((event.clientX - rect.left) / rect.width) * canvas.width;
-  const y = ((event.clientY - rect.top) / rect.height) * canvas.height;
-  const cx = (x - fit.x) / fit.w;
-  const cy = (y - fit.y) / fit.h;
-  if (cx < 0 || cx > 1 || cy < 0 || cy > 1) return;
+  return {
+    x: ((event.clientX - rect.left) / rect.width) * canvas.width,
+    y: ((event.clientY - rect.top) / rect.height) * canvas.height,
+  };
+}
 
+function openPatch(point) {
+  if (state.patches.length >= REVEAL_BUDGET) return;
+  const page = screenToPage(point, state.view);
+  const cx = page.x / state.image.width;
+  const cy = page.y / state.image.height;
+  if (cx < 0 || cx > 1 || cy < 0 || cy > 1) return;
   state.patches.push({ cx, cy, openedAt: performance.now() });
   updateLooks();
   draw();
-};
+}
+
+/** Wheel and pinch both arrive here. */
+$("view").addEventListener("wheel", (event) => {
+  if (!state.image) return;
+  event.preventDefault();
+  const factor = Math.exp(-event.deltaY * 0.0015);
+  setView(zoomAt(state.view, canvasPoint(event), state.view.scale * factor));
+}, { passive: false });
+
+/** Drag to pan; a press that never travels is a tap, and a tap opens a look. */
+$("view").addEventListener("pointerdown", (event) => {
+  if (!state.image) return;
+  const canvas = $("view");
+  const start = canvasPoint(event);
+  const from = { ...state.view };
+  let moved = false;
+  canvas.setPointerCapture(event.pointerId);
+  canvas.classList.add("is-panning");
+
+  const move = (e) => {
+    const now = canvasPoint(e);
+    if (Math.hypot(now.x - start.x, now.y - start.y) > 5) moved = true;
+    if (!moved) return;
+    setView({ scale: from.scale, x: from.x + (now.x - start.x), y: from.y + (now.y - start.y) });
+  };
+  const end = (e) => {
+    canvas.releasePointerCapture(e.pointerId);
+    canvas.classList.remove("is-panning");
+    canvas.removeEventListener("pointermove", move);
+    canvas.removeEventListener("pointerup", end);
+    canvas.removeEventListener("pointercancel", end);
+    if (!moved) openPatch(start);
+  };
+  canvas.addEventListener("pointermove", move);
+  canvas.addEventListener("pointerup", end);
+  canvas.addEventListener("pointercancel", end);
+});
+
+$("view").addEventListener("pointermove", (event) => {
+  if (!state.image || !state.view) return;
+  const page = screenToPage(canvasPoint(event), state.view);
+  const cx = page.x / state.image.width;
+  const cy = page.y / state.image.height;
+  const was = state.hovered;
+  state.hovered = state.patches.findIndex((patch) => {
+    const size = patchSizeAt(performance.now() - patch.openedAt);
+    return Math.abs(patch.cx - cx) < size / 2 && Math.abs(patch.cy - cy) < size / 2;
+  });
+  if (state.hovered !== was) draw();
+});
+
+$("view").addEventListener("pointerleave", () => {
+  if (state.hovered !== -1) { state.hovered = -1; draw(); }
+});
+
+$("view").addEventListener("dblclick", (event) => {
+  if (!state.image) return;
+  event.preventDefault();
+  setView(zoomAt(state.view, canvasPoint(event), state.view.scale * 1.8));
+});
+
+const centre = () => ({ x: $("view").width / 2, y: $("view").height / 2 });
+$("zoom-in").onclick = () => setView(zoomAt(state.view, centre(), state.view.scale * 1.6));
+$("zoom-out").onclick = () => setView(zoomAt(state.view, centre(), state.view.scale / 1.6));
+$("zoom-fit").onclick = () => setView(fittedView($("view"), state.image));
+
+$("view").addEventListener("keydown", (event) => {
+  const step = { "+": 1.6, "=": 1.6, "-": 1 / 1.6, _: 1 / 1.6 }[event.key];
+  if (step) { event.preventDefault(); return setView(zoomAt(state.view, centre(), state.view.scale * step)); }
+  const pan = { ArrowLeft: [60, 0], ArrowRight: [-60, 0], ArrowUp: [0, 60], ArrowDown: [0, -60] }[event.key];
+  if (pan) {
+    event.preventDefault();
+    setView({ scale: state.view.scale, x: state.view.x + pan[0], y: state.view.y + pan[1] });
+  }
+  if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openPatch(centre()); }
+});
 
 $("year").oninput = (e) => { $("year-out").textContent = e.target.value; };
 

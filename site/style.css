@@ -321,3 +321,23 @@ h1 a:hover { color: var(--rubric); }
   .card-facts span, .card-facts em { font-size: .66rem; }
   .card-seat::after { font-size: .55rem; padding: .2rem; }
 }
+
+/* ---- zoom controls ------------------------------------------------------ */
+.zoom-controls {
+  display: flex; align-items: center; gap: .35rem;
+  margin-top: .5rem; flex-wrap: wrap;
+}
+.zoom-controls button { padding: .25rem .6rem; min-width: 2.1rem; line-height: 1.2; }
+.zoom-controls button:hover:not(:disabled) {
+  background: var(--ink); color: var(--parchment); border-color: var(--ink);
+}
+#zoom-level {
+  font-variant-numeric: tabular-nums; font-size: .8rem; color: var(--ink-soft);
+  min-width: 2.6rem; text-align: center;
+}
+#zoom-fit { font-size: .8rem; }
+
+/* The page itself: grab to move, and it says so. */
+.looking-glass #view { cursor: grab; touch-action: none; }
+.looking-glass #view.is-panning { cursor: grabbing; }
+.looking-glass #view:focus-visible { outline: 2px solid var(--rubric); outline-offset: 2px; }

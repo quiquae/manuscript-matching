@@ -11,8 +11,14 @@ Card = tuple[str, int, int]  # (id, not_before, not_after)
 GAP_START = 300
 GAP_FLOOR = 25
 GAP_DECAY = 0.75
-DECK_LENGTH = 10
 CANDIDATES_PER_CENTURY = 40
+
+# The first card is dealt face-up as an anchor. Without it the opening round
+# has an empty board and therefore exactly one slot -- no decision, free points.
+# With it, round one is a real older-or-newer call.
+ANCHOR = 1
+PLAYED_ROUNDS = 10
+DECK_LENGTH = PLAYED_ROUNDS + ANCHOR
 
 
 def gap_for(round_index: int) -> int:

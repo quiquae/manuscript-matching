@@ -1,4 +1,6 @@
-from build.decks import GAP_FLOOR, build_daily_decks, build_deck, gap_for, is_legal
+from build.decks import (
+    DECK_LENGTH, GAP_FLOOR, build_daily_decks, build_deck, gap_for, is_legal,
+)
 
 
 def _pool(n=120, step=20):
@@ -41,7 +43,7 @@ def test_build_deck_is_deterministic():
 
 def test_build_deck_has_no_repeats():
     deck = build_deck(_pool())
-    assert len(deck) == len(set(deck)) == 10
+    assert len(deck) == len(set(deck)) == DECK_LENGTH
 
 
 def test_different_seeds_give_different_decks():
@@ -51,7 +53,7 @@ def test_different_seeds_give_different_decks():
 def test_daily_decks_cover_every_requested_day():
     decks = build_daily_decks(_pool(), ["2026-09-09", "2026-09-10"])
     assert set(decks) == {"2026-09-09", "2026-09-10"}
-    assert all(len(v) == 10 for v in decks.values())
+    assert all(len(v) == DECK_LENGTH for v in decks.values())
 
 
 def test_every_dealt_deck_is_internally_legal():
@@ -69,3 +71,17 @@ def test_deck_shrinks_rather_than_repeating_when_the_pool_is_tiny():
     tiny = [("a", 1000, 1010), ("b", 1400, 1410)]
     deck = build_deck(tiny)
     assert len(deck) == len(set(deck)) <= 2
+
+
+def test_deck_carries_an_anchor_plus_the_played_rounds():
+    """The first card is dealt face-up as a reference point.
+
+    Without it the first round has an empty board, one slot, and therefore no
+    decision to make -- a free 1000 points. With it, round one is a genuine
+    older-or-newer call.
+    """
+    from build.decks import ANCHOR, DECK_LENGTH, PLAYED_ROUNDS
+    assert ANCHOR == 1
+    assert DECK_LENGTH == PLAYED_ROUNDS + ANCHOR
+    deck = build_deck(_pool(n=300))
+    assert len(deck) == DECK_LENGTH

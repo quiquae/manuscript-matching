@@ -3,64 +3,66 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ante Quem — place the manuscript in time</title>
-<meta name="description" content="A daily game about dating medieval manuscripts, built on the Bodleian Libraries' open catalogue.">
+<title>Ante Quem — put the manuscripts in order</title>
+<meta name="description" content="Arrange medieval manuscripts oldest to newest, using the Bodleian Libraries' open catalogue.">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<a class="skip" href="#stage">Skip to the game</a>
+<a class="skip" href="#table">Skip to the game</a>
 
 <header>
   <h1>Ante Quem</h1>
-  <p class="tagline">Place the manuscript in time.</p>
+  <p class="tagline">Oldest on the left. Drag them into order.</p>
   <nav aria-label="Games">
-    <a class="mode is-active" href="index.html" aria-current="page">Ante Quem</a>
+    <a class="mode is-active" href="index.html" aria-current="page">Arrange</a>
     <a class="mode" href="look.html">Look Closer</a>
     <a class="mode" href="shelf.html">The Shelf</a>
-  </nav>
-  <nav aria-label="Game mode" class="submodes">
-    <button id="mode-daily" class="mode is-active" aria-pressed="true">Daily</button>
-    <button id="mode-endless" class="mode" aria-pressed="false">Endless</button>
-    <button id="mode-hard" class="mode" aria-pressed="false"
-            title="One crop, no widening. For people who already know their scripts.">Hard</button>
   </nav>
 </header>
 
 <main>
-  <section id="stage">
-    <figure id="card">
-      <canvas id="view" width="460" height="560" role="img"
-              aria-label="A cropped detail of the manuscript you are placing"></canvas>
-      <figcaption id="credit"></figcaption>
-    </figure>
-
-    <div id="controls">
-      <p id="prompt">Where does this belong on your timeline?</p>
-      <button id="expand">Look wider</button>
-      <p id="expand-note" class="note"></p>
-      <dl id="stats">
-        <div><dt>Score</dt><dd id="score">0</dd></div>
-        <div><dt>Round</dt><dd id="round">—</dd></div>
-        <div><dt>Lives</dt><dd id="lives">•••</dd></div>
-      </dl>
+  <section id="setup" class="setup">
+    <div class="setup-group">
+      <h2 class="label">Play with</h2>
+      <div id="collections" class="choices"></div>
+    </div>
+    <div class="setup-group">
+      <h2 class="label">How hard</h2>
+      <div id="difficulties" class="choices"></div>
     </div>
   </section>
 
-  <section id="board-wrap">
-    <h2 class="label">Your timeline <span class="hint">earliest first</span></h2>
-    <div id="board" aria-live="polite"></div>
-  </section>
+  <p id="prompt" class="prompt">Loading the manuscripts…</p>
+
+  <section id="table" class="table" aria-label="The manuscripts, in the order you have chosen"></section>
+
+  <label class="notes-field" for="notes">
+    <span class="label">Your observations <em>optional, kept on this device</em></span>
+    <textarea id="notes" rows="2"
+      placeholder="What made you order them that way? Script, decoration, layout, a hunch…"></textarea>
+  </label>
+
+  <div class="actions">
+    <button id="check">Check the order</button>
+    <button id="more" hidden>Add two more</button>
+    <button id="again" hidden>New set</button>
+  </div>
+
+  <dl id="stats">
+    <div><dt>Score</dt><dd id="score">0</dd></div>
+    <div><dt>Cards</dt><dd id="count">0</dd></div>
+    <div><dt>Best run</dt><dd id="best">0</dd></div>
+  </dl>
 
   <section id="reveal" hidden aria-live="polite"></section>
-  <section id="summary" hidden></section>
 </main>
 
 <footer>
   <p class="attribution">
     Catalogue data from <a href="https://github.com/bodleian/medieval-mss">bodleian/medieval-mss</a>.
-    Images © Bodleian Libraries, University of Oxford, and reused under
+    Images © Bodleian Libraries, University of Oxford, reused under
     <a href="https://creativecommons.org/licenses/by-nc/4.0/">CC BY-NC 4.0</a>.
-    Every manuscript here links to its own catalogue record.
+    Every manuscript links to its own catalogue record.
   </p>
 </footer>
 

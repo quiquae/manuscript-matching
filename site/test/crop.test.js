@@ -81,3 +81,39 @@ test("focus stays inside the page rather than hugging the border", () => {
   assert.ok(cx > 0.12 && cx < 0.88, `cx ${cx} hugged the border`);
   assert.ok(cy > 0.12 && cy < 0.88, `cy ${cy} hugged the border`);
 });
+
+test("focus prefers warm parchment over a neutral grey ruler", () => {
+  // Left interior: neutral grey with hard black ticks -- a conservation ruler.
+  // Right interior: warm parchment with brown ink -- the actual leaf.
+  const W = 24, H = 24;
+  const px = new Uint8ClampedArray(W * H * 4);
+  const put = (x, y, r, g, b) => {
+    const i = (y * W + x) * 4;
+    px[i] = r; px[i + 1] = g; px[i + 2] = b; px[i + 3] = 255;
+  };
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (x < W / 2) {
+        const tick = x % 3 === 0;                      // regular neutral ticks
+        put(x, y, tick ? 20 : 190, tick ? 20 : 190, tick ? 20 : 190);
+      } else {
+        const ink = (x + y) % 4 === 0;                 // warm ink on warm parchment
+        put(x, y, ink ? 90 : 222, ink ? 60 : 205, ink ? 35 : 170);
+      }
+    }
+  }
+  const { cx } = focusPoint({ data: px, width: W, height: H }, 6);
+  assert.ok(cx > 0.5, `cx ${cx} landed on the ruler rather than the parchment`);
+});
+
+test("warmth preference does not break a genuinely grey manuscript", () => {
+  // An entirely neutral page: no warm region exists, so focus must still be
+  // chosen on contrast rather than returning nothing.
+  const W = 16, H = 16;
+  const px = new Uint8ClampedArray(W * H * 4).fill(200);
+  for (let i = 3; i < px.length; i += 4) px[i] = 255;
+  const ink = (x, y) => { const i = (y * W + x) * 4; px[i] = px[i + 1] = px[i + 2] = 30; };
+  ink(9, 9); ink(10, 9); ink(9, 10);
+  const { cx, cy } = focusPoint({ data: px, width: W, height: H }, 4);
+  assert.ok(cx > 0.4 && cy > 0.4, `focus ${cx},${cy} should still find the ink`);
+});

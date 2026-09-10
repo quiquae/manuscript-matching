@@ -55,6 +55,7 @@ export function focusPoint(imageData, gridN = 8) {
 
       let sum = 0;
       let sumSq = 0;
+      let warm = 0;
       let n = 0;
       for (let y = y0; y < y1; y++) {
         for (let x = x0; x < x1; x++) {
@@ -62,13 +63,21 @@ export function focusPoint(imageData, gridN = 8) {
           const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
           sum += lum;
           sumSq += lum * lum;
+          warm += data[i] - data[i + 2];   // red minus blue
           n++;
         }
       }
       if (!n) continue;
       const mean = sum / n;
       const variance = sumSq / n - mean ** 2;
-      const weight = centre(gx) * centre(gy) * midtone(mean);
+
+      // Parchment and iron-gall ink are warm: red runs well ahead of blue.
+      // Conservation rulers, colour targets and grey mounts are neutral, so
+      // this is what keeps the opening crop off the apparatus rather than the
+      // manuscript. Neutral pages still score, just lower.
+      const warmth = 0.35 + 0.65 * Math.min(1, Math.max(0, warm / n / 30));
+
+      const weight = centre(gx) * centre(gy) * midtone(mean) * warmth;
       const score = Math.sqrt(variance) * weight;
       if (score > best.score) best = { score, gx, gy };
     }

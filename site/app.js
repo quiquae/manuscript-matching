@@ -1,311 +1,417 @@
 /**
- * Ante Quem — place the manuscript in time.
+ * Ante Quem — put the manuscripts in order, oldest first.
  *
- * The rules that decide whether an answer is defensible live in Python and
- * arrive pre-computed in decks.json. This file renders and keeps score.
+ * The whole skill is relative dating, so the interface is a row of cards you
+ * rearrange rather than a form you fill in. Nothing about a card is disclosed
+ * before you commit: you have the image, and how much of it you choose to look
+ * at costs you score.
  */
+import { COLLECTIONS, DIFFICULTIES, buildSet } from "./deck.js";
 import { cropBox, EXPANSION_STEPS, focusPoint } from "./crop.js";
-import { MULTIPLIERS, scoreRound, shareGrid } from "./scoring.js";
+import { orderResult } from "./order.js";
+import { MULTIPLIERS } from "./scoring.js";
 import { renderReveal } from "./reveal.js";
 import { createShelf } from "./shelf.js";
 
 const DATA = "data/";
-const IIIF_WIDTH = 682;        // a pre-rendered size; 341 and 420 both time out
-const PREFETCH_AHEAD = 3;
-const LIVES = 3;
+const IIIF_WIDTH = 682;
+const CARD_W = 190;
+const CARD_H = 250;
 
 const $ = (id) => document.getElementById(id);
 const shelf = createShelf(window.localStorage);
 
 const state = {
-  puzzles: new Map(),
-  decks: {},
+  puzzles: [],
+  byId: new Map(),
   context: {},
   lookalikes: {},
-  mode: "daily",
-  deck: [],
-  index: 0,
-  board: [],
-  expansions: 0,
+  collection: COLLECTIONS[0],
+  difficulty: DIFFICULTIES[1],
+  cards: [],          // { puzzle, image, focus, zoom }
+  drag: null,
+  committed: false,
   score: 0,
-  lives: LIVES,
-  hard: false,
-  rounds: [],
-  image: null,
-  focus: { cx: 0.5, cy: 0.5 },
+  best: Number(window.localStorage.getItem("ante-quem:best") ?? 0),
 };
 
 /* ---------------------------------------------------------------- images */
 
 const imageCache = new Map();
 
-/** One request per manuscript, ever. Everything after this is local canvas work. */
+/** One request per manuscript, ever; every zoom after that is local. */
 function loadImage(puzzle) {
-  if (!puzzle?.iiif) return Promise.reject(new Error("no image service"));
   if (imageCache.has(puzzle.id)) return imageCache.get(puzzle.id);
-
   const promise = new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`image failed: ${puzzle.id}`));
+    img.onerror = () => reject(new Error(puzzle.id));
     img.src = `${puzzle.iiif}/full/${IIIF_WIDTH},/0/default.jpg`;
   });
   imageCache.set(puzzle.id, promise);
   return promise;
 }
 
-/** Warm the next few rounds so a slow response never blocks the player. */
-function prefetch() {
-  for (let i = state.index + 1; i <= state.index + PREFETCH_AHEAD; i++) {
-    const puzzle = state.puzzles.get(state.deck[i]);
-    if (puzzle) loadImage(puzzle).catch(() => {});
-  }
-}
-
 function detectFocus(img) {
-  const canvas = document.createElement("canvas");
-  canvas.width = 64;
-  canvas.height = Math.max(1, Math.round((img.height / img.width) * 64));
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-  return focusPoint(ctx.getImageData(0, 0, canvas.width, canvas.height), 8);
+  const c = document.createElement("canvas");
+  c.width = 64;
+  c.height = Math.max(1, Math.round((img.height / img.width) * 64));
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0, c.width, c.height);
+  return focusPoint(ctx.getImageData(0, 0, c.width, c.height), 8);
 }
 
-function draw() {
-  const canvas = $("view");
+function paint(card) {
+  const canvas = card.canvas;
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "#efe9df";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  if (!state.image) return;
+  if (!card.image) return;
 
-  const step = Math.min(state.expansions, EXPANSION_STEPS.length - 1);
-  const zoom = EXPANSION_STEPS[step];
-  const box = cropBox(state.image.width, state.image.height, state.focus.cx, state.focus.cy, zoom);
-
-  // Detail crops fill the frame (cover) so no space is wasted on empty ground.
-  // The final full-page step must show the whole leaf, so it fits instead.
-  const wholePage = step === EXPANSION_STEPS.length - 1;
-  const fit = Math.min(canvas.width / box.w, canvas.height / box.h);
-  const cover = Math.max(canvas.width / box.w, canvas.height / box.h);
-  const scale = wholePage ? fit : cover;
-
+  const zoom = EXPANSION_STEPS[Math.min(card.zoom, EXPANSION_STEPS.length - 1)];
+  const box = cropBox(card.image.width, card.image.height, card.focus.cx, card.focus.cy, zoom);
+  const whole = card.zoom >= EXPANSION_STEPS.length - 1;
+  const scale = whole
+    ? Math.min(canvas.width / box.w, canvas.height / box.h)
+    : Math.max(canvas.width / box.w, canvas.height / box.h);
   const dw = box.w * scale;
   const dh = box.h * scale;
-  ctx.drawImage(state.image, box.x, box.y, box.w, box.h,
+  ctx.drawImage(card.image, box.x, box.y, box.w, box.h,
                 (canvas.width - dw) / 2, (canvas.height - dh) / 2, dw, dh);
 }
 
-/* ----------------------------------------------------------------- board */
+/* ------------------------------------------------------------------ table */
 
-const yearsOf = (card) => card.date_display || `${card.not_before}–${card.not_after}`;
+const zoomsUsed = () => state.cards.reduce((n, c) => n + c.zoom, 0);
 
-function renderBoard() {
-  const board = $("board");
-  board.innerHTML = "";
-
-  if (!state.board.length) {
-    board.innerHTML = '<p class="empty-board">Place the first manuscript to begin.</p>';
-  }
-
-  const slot = (position, label) => {
-    const button = document.createElement("button");
-    button.className = "slot";
-    button.textContent = "+";
-    button.setAttribute("aria-label", label);
-    button.onclick = () => commit(position);
-    return button;
-  };
-
-  board.append(slot(0, state.board.length ? "Place before everything" : "Place here"));
-  state.board.forEach((card, i) => {
-    const el = document.createElement("div");
-    el.className = "placed";
-    el.innerHTML = "<strong></strong><span></span>";
-    el.querySelector("strong").textContent = yearsOf(card);
-    el.querySelector("span").textContent = card.shelfmark || card.id;
-    board.append(el, slot(i + 1, `Place after ${yearsOf(card)}`));
-  });
+function moveCard(from, to) {
+  if (to < 0 || to >= state.cards.length) return;
+  const [card] = state.cards.splice(from, 1);
+  state.cards.splice(to, 0, card);
+  renderTable();
 }
 
-/* ------------------------------------------------------------------ loop */
+/**
+ * Dragging, on document-level listeners rather than pointer capture.
+ *
+ * The row re-renders as cards reorder under the pointer, which destroys the
+ * element being dragged; listening on the document survives that, and the drag
+ * is tracked by card object rather than by node.
+ */
+/** One more expansion step on a single card. Costs score, like every look. */
+function zoomCard(card) {
+  if (state.committed || card.zoom >= EXPANSION_STEPS.length - 1) return;
+  card.zoom += 1;
+  paint(card);
+  updateStats();
+}
 
-const currentPuzzle = () => state.puzzles.get(state.deck[state.index]);
+function startDrag(card, event) {
+  if (state.committed) return;
+  const originX = event.clientX;
+  const originY = event.clientY;
+  let moved = false;
+  state.drag = card;
+  renderTable();
+
+  const over = (clientX) => {
+    const seats = [...document.querySelectorAll(".card")];
+    for (let i = 0; i < seats.length; i++) {
+      const box = seats[i].getBoundingClientRect();
+      if (clientX < box.left + box.width / 2) return i;
+    }
+    return seats.length - 1;
+  };
+
+  const move = (e) => {
+    if (Math.hypot(e.clientX - originX, e.clientY - originY) > 6) moved = true;
+    const from = state.cards.indexOf(card);
+    const to = over(e.clientX);
+    if (to !== -1 && to !== from) {
+      state.cards.splice(from, 1);
+      state.cards.splice(to, 0, card);
+      renderTable();
+    }
+  };
+
+  const end = () => {
+    state.drag = null;
+    document.removeEventListener("pointermove", move);
+    document.removeEventListener("pointerup", end);
+    document.removeEventListener("pointercancel", end);
+    // A press that never travelled is a tap, and a tap means "show me more".
+    if (!moved) zoomCard(card);
+    renderTable();
+  };
+
+  document.addEventListener("pointermove", move);
+  document.addEventListener("pointerup", end);
+  document.addEventListener("pointercancel", end);
+  event.preventDefault();
+}
+
+function renderTable() {
+  const table = $("table");
+  table.innerHTML = "";
+
+  state.cards.forEach((card, i) => {
+    const el = document.createElement("div");
+    el.className = "card";
+    if (state.drag === card) el.classList.add("is-dragging");
+    if (state.committed) {
+      el.classList.add(card.wrong ? "is-wrong" : "is-right");
+    }
+
+    const seat = document.createElement("div");
+    seat.className = "card-seat";
+    seat.setAttribute("role", "img");
+    seat.setAttribute("aria-label",
+      `Manuscript in position ${i + 1} of ${state.cards.length}. Drag to reorder, or use the arrows below.`);
+    seat.append(card.canvas);
+    seat.onpointerdown = (e) => startDrag(card, e);
+    el.append(seat);
+
+    const bar = document.createElement("div");
+    bar.className = "card-bar";
+
+    const zoom = document.createElement("button");
+    zoom.type = "button";
+    zoom.className = "icon";
+    zoom.textContent = card.zoom >= EXPANSION_STEPS.length - 1 ? "◱" : "⌕";
+    zoom.title = "Look wider at this one. Costs score.";
+    zoom.setAttribute("aria-label", `Look wider at the manuscript in position ${i + 1}`);
+    zoom.disabled = state.committed || card.zoom >= EXPANSION_STEPS.length - 1;
+    zoom.onpointerdown = (e) => e.stopPropagation();
+    zoom.onclick = (e) => {
+      e.stopPropagation();
+      zoomCard(card);
+      renderTable();
+    };
+    bar.append(zoom);
+
+    if (!state.committed) {
+      for (const [dir, glyph, label] of [[-1, "‹", "earlier"], [1, "›", "later"]]) {
+        const nudge = document.createElement("button");
+        nudge.type = "button";
+        nudge.className = "icon";
+        nudge.textContent = glyph;
+        nudge.setAttribute("aria-label", `Move this manuscript one place ${label}`);
+        nudge.disabled = dir < 0 ? i === 0 : i === state.cards.length - 1;
+        nudge.onpointerdown = (e) => e.stopPropagation();
+        nudge.onclick = (e) => { e.stopPropagation(); moveCard(i, i + dir); };
+        bar.append(nudge);
+      }
+    }
+    el.append(bar);
+
+    // Nothing is disclosed until the order is committed.
+    if (state.committed) {
+      const facts = document.createElement("a");
+      facts.className = "card-facts";
+      facts.href = card.puzzle.catalogue;
+      facts.target = "_blank";
+      facts.rel = "noopener";
+      facts.innerHTML = "<strong></strong><span></span><em>Bodleian record ↗</em>";
+      facts.querySelector("strong").textContent =
+        card.puzzle.date_display || `${card.puzzle.not_before}–${card.puzzle.not_after}`;
+      facts.querySelector("span").textContent = card.puzzle.shelfmark || card.puzzle.id;
+      el.append(facts);
+    }
+
+    table.append(el);
+  });
+}
 
 function updateStats() {
   $("score").textContent = state.score;
-  $("round").textContent = state.deck.length
-    ? `${Math.min(state.index + 1, state.deck.length)}/${state.deck.length}` : "—";
-  $("lives").textContent = "•".repeat(Math.max(state.lives, 0)) || "—";
+  $("count").textContent = state.cards.length;
+  $("best").textContent = state.best;
 }
 
-function commit(slotIndex) {
-  const card = currentPuzzle();
-  if (!card) return;
+/* ------------------------------------------------------------------ rounds */
 
-  const trueIndex = state.board.filter((c) => c.not_before < card.not_before).length;
-  const correct = slotIndex === trueIndex;
-  const gained = scoreRound(state.expansions, correct);
+async function addCards(count) {
+  const pool = state.puzzles.filter(state.collection.test);
+  const kept = state.cards.map((c) => c.puzzle);
+  const wanted = kept.length + count;
+  const chosen = buildSet(pool, {
+    size: wanted,
+    seed: `${state.collection.id}-${state.difficulty.id}-${Date.now()}`,
+    startGap: state.difficulty.startGap,
+    floor: state.difficulty.floor,
+    keep: kept,
+  });
 
-  state.score += gained;
-  state.rounds.push({ correct, expansions: state.expansions });
-  shelf.record(card.id);
-  if (correct) {
-    state.board.push(card);
-    state.board.sort((a, b) => a.not_before - b.not_before);
-  } else {
-    state.lives -= 1;
+  const fresh = chosen.slice(kept.length);
+  if (!fresh.length) {
+    $("prompt").textContent = "No more manuscripts fit this collection at this difficulty.";
+    return;
   }
 
-  updateStats();
-  renderBoard();
-  $("board").querySelectorAll("button").forEach((b) => { b.disabled = true; });
+  $("prompt").textContent = "Fetching pages…";
+  const loaded = await Promise.all(fresh.map(async (puzzle) => {
+    try {
+      const image = await loadImage(puzzle);
+      return { puzzle, image, focus: detectFocus(image), zoom: 0, canvas: null };
+    } catch {
+      return null;                    // a dead image must never stall a round
+    }
+  }));
 
-  renderReveal($("reveal"), card, {
-    correct,
-    gained,
-    guessedYear: correct ? "" : `in position ${slotIndex + 1} of ${state.board.length + 1}`,
+  for (const card of loaded.filter(Boolean)) {
+    card.canvas = document.createElement("canvas");
+    card.canvas.width = CARD_W;
+    card.canvas.height = CARD_H;
+    paint(card);
+    state.cards.push(card);
+  }
+
+  // Shuffle only the newly dealt cards into the row, so anything the player
+  // has already arranged keeps its place.
+  for (let i = state.cards.length - 1; i > kept.length; i--) {
+    const j = kept.length + Math.floor(Math.random() * (i - kept.length + 1));
+    [state.cards[i], state.cards[j]] = [state.cards[j], state.cards[i]];
+  }
+
+  state.committed = false;
+  state.drag = null;
+  $("prompt").textContent =
+    "Drag them into order, oldest on the left. Or nudge one with ‹ ›.";
+  $("check").hidden = false;
+  $("more").hidden = true;
+  $("again").hidden = true;
+  $("reveal").hidden = true;
+  renderTable();
+  updateStats();
+}
+
+function check() {
+  const arranged = state.cards.map((c) => c.puzzle);
+  const result = orderResult(arranged, zoomsUsed());
+  const wrong = new Set(result.misplaced);
+  state.cards.forEach((c) => { c.wrong = wrong.has(c.puzzle.id); });
+  state.committed = true;
+  state.drag = null;
+  state.score += result.score;
+  if (state.score > state.best) {
+    state.best = state.score;
+    window.localStorage.setItem("ante-quem:best", String(state.best));
+  }
+  state.cards.forEach((c) => shelf.record(c.puzzle.id));
+
+  renderTable();
+  updateStats();
+  saveNote(result);
+
+  $("check").hidden = true;
+  $("more").hidden = !result.perfect;
+  $("again").hidden = false;
+  $("prompt").textContent = result.perfect
+    ? `Every pair right. ${result.score} points.`
+    : `${result.right} of ${result.total} pairs in the right order. ${result.score} points.`;
+
+  // Show the full record for one card: the wrongest if any, else the oldest.
+  const focusCard = state.cards.find((c) => c.wrong) ?? state.cards[0];
+  renderReveal($("reveal"), focusCard.puzzle, {
+    correct: !focusCard.wrong,
+    gained: result.score,
+    guessedYear: $("notes").dataset.saved
+      ? `You wrote: “${$("notes").dataset.saved}”`
+      : "",
     context: state.context,
-    lookalikes: (state.lookalikes[card.id] || [])
-      .map((id) => state.puzzles.get(id))
-      .filter(Boolean),
-    onNext: nextRound,
+    lookalikes: (state.lookalikes[focusCard.puzzle.id] || [])
+      .map((id) => state.byId.get(id)).filter(Boolean),
+    onNext: () => { $("reveal").hidden = true; },
   });
 }
 
-async function nextRound() {
-  $("reveal").hidden = true;
-  state.index += 1;
-  state.expansions = 0;
-
-  if (state.lives <= 0 || state.index >= state.deck.length) {
-    if (state.mode === "endless" && state.lives > 0) extendEndlessDeck();
-    else return finish();
-  }
-  await showCard();
-}
-
-async function showCard() {
-  const puzzle = currentPuzzle();
-  if (!puzzle) return finish();
-
-  $("credit").textContent = puzzle.attribution || "";
-  $("expand").disabled = state.hard;
-  $("expand-note").textContent = state.hard
-    ? "Hard mode: one crop, no widening."
-    : "";
-  state.image = null;
-  draw();
-  updateStats();
-
-  try {
-    state.image = await loadImage(puzzle);
-    state.focus = detectFocus(state.image);
-  } catch {
-    return nextRound();          // a dead image must never stall the run
-  }
-  draw();
-  renderBoard();
-  prefetch();
-}
-
-function finish() {
-  $("stage").hidden = true;
-  $("reveal").hidden = true;
-  const placed = state.board.length;
-  const summary = $("summary");
-  summary.hidden = false;
-  summary.innerHTML = `
-    <h2>${placed} placed &middot; ${state.score} points</h2>
-    <p class="grid">${shareGrid(state.rounds)}</p>
-    <button id="copy-grid">Copy result</button>
-    <button id="play-again">Play again</button>`;
-  summary.querySelector("#copy-grid").onclick = async (e) => {
-    const label = state.mode === "daily" ? `Ante Quem ${todayKey()}` : "Ante Quem — endless";
-    await navigator.clipboard.writeText(
-      `${label}\n${placed} placed, ${state.score} points\n${shareGrid(state.rounds)}`);
-    e.target.textContent = "Copied";
-  };
-  summary.querySelector("#play-again").onclick = () => start(state.mode);
-}
-
-/* ------------------------------------------------------------- endless */
-
-/** Endless deals client-side, applying the same disjointness rule as the build. */
-function extendEndlessDeck() {
-  const pool = [...state.puzzles.values()];
-  const placed = new Set(state.deck);
-  for (let attempt = 0; attempt < 400; attempt++) {
-    const card = pool[Math.floor(Math.random() * pool.length)];
-    if (placed.has(card.id)) continue;
-    const clears = state.board.every((c) =>
-      card.not_before > c.not_after || card.not_after < c.not_before);
-    if (clears) {
-      state.deck.push(card.id);
-      return;
-    }
-  }
-  state.deck.push(pool[Math.floor(Math.random() * pool.length)].id);
-}
-
-/* ---------------------------------------------------------------- boot */
-
-const todayKey = () => new Date().toISOString().slice(0, 10);
-
-function start(mode) {
-  state.mode = mode;
-  state.index = 0;
-  state.board = [];
-  state.expansions = 0;
+async function newSet() {
+  state.cards = [];
   state.score = 0;
-  state.lives = LIVES;
-  state.rounds = [];
-
-  // Hard plays the day's deck but forbids widening: one crop, one judgement.
-  state.hard = mode === "hard";
-  if (mode === "endless") {
-    state.deck = [];
-    extendEndlessDeck();
-  } else {
-    state.deck = state.decks[todayKey()] || Object.values(state.decks)[0] || [];
-  }
-
-  $("summary").hidden = true;
-  $("reveal").hidden = true;
-  $("stage").hidden = false;
-  for (const id of ["mode-daily", "mode-endless", "mode-hard"]) {
-    const on = id === `mode-${mode}`;
-    $(id).classList.toggle("is-active", on);
-    $(id).setAttribute("aria-pressed", String(on));
-  }
-  showCard();
+  $("notes").value = "";
+  delete $("notes").dataset.saved;
+  imageCache.clear();
+  await addCards(state.difficulty.size);
 }
 
-$("expand").onclick = () => {
-  if (state.hard || state.expansions >= EXPANSION_STEPS.length - 1) return;
-  state.expansions += 1;
-  const worth = Math.round((MULTIPLIERS[state.expansions] ?? 0) * 100);
-  $("expand-note").textContent =
-    `Showing ${Math.round(EXPANSION_STEPS[state.expansions] * 100)}% of the page. This round is now worth ${worth}%.`;
-  if (state.expansions >= EXPANSION_STEPS.length - 1) $("expand").disabled = true;
-  draw();
-};
+/**
+ * Observations are kept on the device and shown back beside the cataloguer's
+ * own description, so a player can see how their reading compares with the
+ * Bodleian's rather than only whether they scored.
+ */
+const NOTES_KEY = "ante-quem:notes";
 
-$("mode-daily").onclick = () => start("daily");
-$("mode-endless").onclick = () => start("endless");
-$("mode-hard").onclick = () => start("hard");
+function saveNote(result) {
+  const text = $("notes").value.trim();
+  if (!text) return;
+  let log = [];
+  try {
+    log = JSON.parse(window.localStorage.getItem(NOTES_KEY) ?? "[]");
+    if (!Array.isArray(log)) log = [];
+  } catch {
+    log = [];
+  }
+  log.unshift({
+    at: new Date().toISOString(),
+    note: text,
+    shelfmarks: state.cards.map((c) => c.puzzle.shelfmark || c.puzzle.id),
+    right: result.right,
+    total: result.total,
+  });
+  try {
+    window.localStorage.setItem(NOTES_KEY, JSON.stringify(log.slice(0, 200)));
+  } catch {
+    /* quota or private mode: the note is a nicety, never a blocker */
+  }
+  $("notes").dataset.saved = text;
+}
+
+/* -------------------------------------------------------------------- setup */
+
+function chips(el, items, current, onPick) {
+  el.innerHTML = "";
+  for (const item of items) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip";
+    chip.textContent = item.label;
+    chip.title = item.blurb ?? "";
+    if (item.id === current.id) chip.classList.add("is-chosen");
+    chip.onclick = () => {
+      [...el.children].forEach((c) => c.classList.remove("is-chosen"));
+      chip.classList.add("is-chosen");
+      onPick(item);
+    };
+    el.append(chip);
+  }
+}
+
+$("check").onclick = check;
+$("more").onclick = () => addCards(state.difficulty.grow);
+$("again").onclick = newSet;
 
 async function boot() {
   try {
-    const [puzzles, decks, context, lookalikes] = await Promise.all(
-      ["puzzles", "decks", "context", "lookalikes"].map((name) =>
-        fetch(`${DATA}${name}.json`).then((r) => {
-          if (!r.ok) throw new Error(`${name}.json: ${r.status}`);
+    const [puzzles, context, lookalikes] = await Promise.all(
+      ["puzzles", "context", "lookalikes"].map((n) =>
+        fetch(`${DATA}${n}.json`).then((r) => {
+          if (!r.ok) throw new Error(`${n}.json: ${r.status}`);
           return r.json();
         })));
-    puzzles.forEach((p) => state.puzzles.set(p.id, p));
-    Object.assign(state, { decks, context, lookalikes });
-    start("daily");
+    state.puzzles = puzzles;
+    puzzles.forEach((p) => state.byId.set(p.id, p));
+    Object.assign(state, { context, lookalikes });
+
+    chips($("collections"), COLLECTIONS, state.collection, (c) => {
+      state.collection = c;
+      newSet();
+    });
+    chips($("difficulties"), DIFFICULTIES, state.difficulty, (d) => {
+      state.difficulty = d;
+      newSet();
+    });
+    await newSet();
   } catch (err) {
     $("prompt").textContent =
       "The manuscript data has not been built yet. Run `python -m build` and reload.";

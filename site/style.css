@@ -68,8 +68,6 @@ main { max-width: 64rem; margin: 0 auto; }
 #stats dt { font-size: .68rem; text-transform: uppercase; letter-spacing: .09em; color: var(--ink-soft); }
 #stats dd { margin: .1rem 0 0; font-size: 1.35rem; font-variant-numeric: tabular-nums; }
 
-#board-wrap { margin-top: 2.5rem; }
-#board { display: flex; align-items: stretch; gap: .2rem; flex-wrap: wrap; }
 .slot {
   min-width: 2.2rem; padding: .5rem .3rem; border-style: dashed;
   color: var(--ink-soft); background: transparent; align-self: stretch;
@@ -159,3 +157,94 @@ footer { max-width: 64rem; margin: 3.5rem auto 0; border-top: 1px solid var(--ru
 .met-shelf { font-size: .8rem; }
 .met-when { font-size: .72rem; color: var(--ink-soft); }
 main section { margin-top: 2rem; }
+
+
+/* ---- the arrange table -------------------------------------------------- */
+
+.setup {
+  display: flex; gap: 2.5rem; flex-wrap: wrap;
+  padding-bottom: 1.25rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--rule);
+}
+.setup-group .label { margin-bottom: .5rem; }
+.prompt { font-size: 1.05rem; margin: 0 0 1.25rem; min-height: 1.6em; }
+
+.table {
+  display: flex; gap: .85rem; align-items: flex-start;
+  overflow-x: auto; padding: .5rem .25rem 1.25rem;
+  scroll-snap-type: x proximity;
+}
+
+.card {
+  flex: 0 0 auto; scroll-snap-align: center;
+  display: flex; flex-direction: column; gap: .4rem;
+  transition: transform .16s ease, box-shadow .16s ease;
+}
+
+/* The image is the handle: grab it to reorder, tap it to look closer. */
+.card-seat {
+  display: block; border: 1px solid var(--rule); background: #efe9df;
+  box-shadow: var(--shadow); cursor: grab; touch-action: none;
+  position: relative;
+}
+.card-seat::after {
+  content: "tap to look closer";
+  position: absolute; inset: auto 0 0 0; padding: .3rem;
+  font-size: .62rem; text-align: center; letter-spacing: .04em;
+  background: rgb(43 36 25 / 72%); color: var(--parchment);
+  opacity: 0; transition: opacity .15s ease;
+}
+.card-seat:hover { border-color: var(--ink-soft); }
+.card-seat:hover::after { opacity: 1; }
+.card-seat:active { cursor: grabbing; }
+.card-seat canvas { display: block; }
+
+.card:hover { transform: translateY(-3px); }
+.card:hover .card-seat { box-shadow: 0 6px 14px rgb(43 36 25 / 18%); }
+
+.card.is-dragging { transform: translateY(-6px) rotate(-1.2deg); z-index: 5; }
+.card.is-dragging .card-seat {
+  box-shadow: 0 12px 26px rgb(43 36 25 / 28%); border-color: var(--ink);
+}
+.card.is-dragging .card-seat::after { opacity: 0; }
+
+.card.is-right .card-seat { border-color: var(--green); border-width: 2px; }
+.card.is-wrong .card-seat { border-color: var(--rubric); border-width: 2px; }
+
+.card-bar { display: flex; gap: .3rem; justify-content: center; }
+.icon {
+  padding: .22rem .55rem; font-size: .95rem; line-height: 1.2;
+  min-width: 2.1rem; text-align: center;
+}
+.icon:hover:not(:disabled) { background: var(--ink); color: var(--parchment); border-color: var(--ink); }
+
+.card-facts {
+  display: flex; flex-direction: column; gap: .1rem;
+  text-decoration: none; color: inherit; padding: .4rem .1rem 0;
+  max-width: 190px;
+}
+.card-facts strong { font-size: .85rem; font-variant-numeric: tabular-nums; }
+.card-facts span { font-size: .72rem; color: var(--ink-soft); }
+.card-facts em { font-size: .68rem; color: var(--rubric); font-style: normal; }
+.card-facts:hover em { text-decoration: underline; }
+
+.actions { display: flex; gap: .6rem; flex-wrap: wrap; margin: .5rem 0 1.5rem; }
+#check { background: var(--ink); color: var(--parchment); border-color: var(--ink); }
+#check:hover { background: var(--rubric); border-color: var(--rubric); }
+
+@media (prefers-reduced-motion: reduce) {
+  .card, .card-seat::after { transition: none; }
+  .card.is-dragging { transform: none; }
+}
+
+/* ---- observations ------------------------------------------------------- */
+.notes-field { display: block; margin: 0 0 1.25rem; max-width: 44rem; }
+.notes-field .label em {
+  font-style: italic; text-transform: none; letter-spacing: 0; font-weight: 400;
+}
+#notes {
+  width: 100%; font: inherit; font-size: .92rem; padding: .6rem .7rem;
+  background: var(--card); color: var(--ink);
+  border: 1px solid var(--rule); border-radius: 2px; resize: vertical;
+}
+#notes:focus-visible { outline: 2px solid var(--rubric); outline-offset: 1px; }
+#notes::placeholder { color: var(--ink-soft); opacity: .8; font-style: italic; }

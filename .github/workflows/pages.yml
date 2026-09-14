@@ -1,18 +1,18 @@
-name: Deploy to GitHub Pages
+name: Test, and deploy on request
 
+# Tests run on every push and pull request. Deploying to GitHub Pages is
+# manual (Actions tab -> Run workflow) and should stay that way until the
+# Bodleian confirms reuse terms for the catalogue text: bodleian/medieval-mss
+# has no LICENSE file, and GitHub Pages sites are public on every plan except
+# Enterprise Cloud, even when the repository itself is private.
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: true
 
 jobs:
   test:
@@ -46,8 +46,17 @@ jobs:
           PY
 
   deploy:
+    # Never on push: publishing is a deliberate act, not a side effect of saving work.
+    if: github.event_name == 'workflow_dispatch'
     needs: test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: true
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

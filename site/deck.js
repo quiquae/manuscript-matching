@@ -54,7 +54,7 @@ export const COLLECTIONS = [
   { id: "papyri", label: "Ancient papyri", blurb: "Greek and Egyptian, mostly Oxyrhynchus.",
     test: (p) => p.material === "papyrus" },
   { id: "illuminated", label: "Illuminated", blurb: "Books with painted decoration.",
-    test: (p) => (p.decoration ?? []).length > 0 },
+    test: (p) => Boolean(p.decorated) },
   { id: "england", label: "Made in England", blurb: "The largest single group.",
     test: (p) => p.region === "England" },
 ];

@@ -426,14 +426,18 @@ $("reading").onsubmit = (event) => {
 
 async function boot() {
   try {
-    const [puzzles, context, lookalikes] = await Promise.all(
-      ["puzzles", "context", "lookalikes"].map((n) =>
+    // Look Closer loads the details up front rather than lazily, because it
+    // grades the player's reading of the hand against the cataloguer's own
+    // description of it. Arrange, which is the page people arrive on, takes the
+    // small index and fetches the rest while they play. See build/payload.py.
+    const [puzzles, details, context, lookalikes] = await Promise.all(
+      ["puzzles", "details", "context", "lookalikes"].map((n) =>
         fetch(`${DATA}${n}.json`).then((r) => {
           if (!r.ok) throw new Error(`${n}.json: ${r.status}`);
           return r.json();
         })));
-    state.puzzles = puzzles;
-    puzzles.forEach((p) => state.byId.set(p.id, p));
+    state.puzzles = puzzles.map((p) => ({ ...p, ...(details[p.id] ?? {}) }));
+    state.puzzles.forEach((p) => state.byId.set(p.id, p));
     Object.assign(state, { context, lookalikes });
 
     chipRow($("regions"), REGIONS.map((r) => ({ id: r, label: r })),

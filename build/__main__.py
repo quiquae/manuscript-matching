@@ -1,4 +1,4 @@
-"""python -m build  ->  data/{puzzles,context,lookalikes}.json"""
+"""python -m build  ->  data/{puzzles,details,context,lookalikes}.json"""
 import json
 from dataclasses import asdict
 from pathlib import Path
@@ -6,6 +6,7 @@ from pathlib import Path
 from build.aggregates import corpus_context, lookalike_index
 from build.corpus import corpus_root, record_files
 from build.manifests import image_service
+from build.payload import split
 from build.places import load_places
 from build.records import Record, extract, playable
 from build.works import load_subjects
@@ -46,9 +47,14 @@ def main() -> None:
     playable_by_id = {r.id: r for r in candidates}
     resolved = [playable_by_id[r["id"]] for r in rows]
 
+    # puzzles.json is what play needs; details.json is what the reveal needs and
+    # is fetched after a round has started. See build/payload.py.
+    index, details = split(rows)
+
     OUT.mkdir(exist_ok=True)
     written = {
-        "puzzles": rows,
+        "puzzles": index,
+        "details": details,
         "context": corpus_context(resolved),
         "lookalikes": lookalike_index(resolved),
     }

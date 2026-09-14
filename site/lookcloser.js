@@ -79,7 +79,7 @@ export function unrevealedPenalty(revealsUsed) {
 }
 
 export function scoreReading(guess, truth, revealsUsed) {
-  const decorated = (truth.decoration ?? []).length > 0;
+  const decorated = Boolean(truth.decorated);
   const accuracy =
     dateCredit(guess.year, truth) * WEIGHTS.date
     + (guess.region === truth.region ? WEIGHTS.region : 0)

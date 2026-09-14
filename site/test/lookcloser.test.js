@@ -40,7 +40,7 @@ test("restraint is rewarded and the budget never zeroes the score", () => {
 test("a reading is graded on what you can actually see", () => {
   const truth = {
     not_before: 1300, not_after: 1325, region: "France",
-    material: "perg", language: "fro", decoration: ["Fine miniatures."],
+    material: "perg", language: "fro", decorated: true,
   };
   const perfect = scoreReading(
     { year: 1310, region: "France", material: "perg", language: "fro", decorated: true },
@@ -54,7 +54,7 @@ test("a reading is graded on what you can actually see", () => {
 
 test("decoration is graded as present or absent, which is what you can see", () => {
   const bare = { not_before: 1300, not_after: 1325, region: "France",
-                 material: "perg", language: "la", decoration: [] };
+                 material: "perg", language: "la", decorated: false };
   const said_yes = scoreReading({ year: 1310, region: "France", material: "perg",
                                   language: "la", decorated: true }, bare, 0);
   const said_no = scoreReading({ year: 1310, region: "France", material: "perg",

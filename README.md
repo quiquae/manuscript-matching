@@ -20,6 +20,13 @@ the game is a front door to 2,201 manuscripts, not a destination.
 A Python build step turns 11,123 TEI records into JSON. A dependency-free static site consumes
 it. There is no server, no database and no runtime cost.
 
+The records are split by when the browser needs them. `puzzles.json` (88 KB gzipped) holds what
+it takes to deal, filter, draw and score — so Arrange, which is the page people arrive on, is
+playable after 103 KB. `details.json` (596 KB) holds the catalogue prose the reveal shows, and is
+fetched once a round is dealt, while the player is still arranging. Before the split a single
+file put all 708 KB in front of every first load, and 43% of that was one field: `decoration`,
+whose entries run to paragraphs and which the game reads as a yes/no.
+
 Each manuscript's page image is fetched once, and cropping it is a local canvas operation. That
 is not an optimisation: Bodleian's image server timed out on roughly one request in five during
 testing, so any code path that blocks the player on the network is a defect. The one exception
@@ -51,7 +58,7 @@ then keep stale ES modules and an edit appears not to have happened.
     tests/        pytest
     scripts/      manifest warm-up, the link-preview card, and the no-cache dev server
     site/         the static site; this directory is what gets deployed
-    site/data/    committed build output
+    site/data/    committed build output; puzzles.json is the play index, details.json the prose
     site/og.png   the link-preview card; `python3 scripts/make_og.py` after a palette change
     data/cache/   downloaded corpus and manifest cache (gitignored)
     docs/specs/   the design

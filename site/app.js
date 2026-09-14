@@ -13,6 +13,7 @@ import { orderResult } from "./order.js";
 import { MULTIPLIERS, shareGrid } from "./scoring.js";
 import { renderReveal } from "./reveal.js";
 import { createShelf } from "./shelf.js";
+import { createRecords, fetchDetails } from "./records.js";
 import {
   createDailyLog, DAILY_COLLECTION, DAILY_DIFFICULTY, dailyLabel, dailySeed, todayISO,
 } from "./daily.js";
@@ -34,6 +35,7 @@ const cardSize = () =>
 const $ = (id) => document.getElementById(id);
 const shelf = createShelf(window.localStorage);
 const dailyLog = createDailyLog(window.localStorage);
+const records = createRecords(fetchDetails);
 
 /** By id, never by position: the order of these lists is presentational. */
 const pick = (items, id) => items.find((i) => i.id === id) ?? items[0];
@@ -385,6 +387,9 @@ async function addCards(count) {
     [state.cards[i], state.cards[j]] = [state.cards[j], state.cards[i]];
   }
 
+  // The catalogue prose for the reveal, fetched while the player arranges.
+  records.prefetch();
+
   state.committed = false;
   state.drag = null;
   const standing = isDaily() ? dailyLog.read(state.day) : null;
@@ -427,7 +432,7 @@ function check() {
 
   // Show the full record for one card: the wrongest if any, else the oldest.
   const focusCard = state.cards.find((c) => c.wrong) ?? state.cards[0];
-  renderReveal($("reveal"), focusCard.puzzle, {
+  records.merge(focusCard.puzzle).then((puzzle) => renderReveal($("reveal"), puzzle, {
     correct: !focusCard.wrong,
     gained: result.score,
     guessedYear: $("notes").dataset.saved
@@ -437,7 +442,7 @@ function check() {
     lookalikes: (state.lookalikes[focusCard.puzzle.id] || [])
       .map((id) => state.byId.get(id)).filter(Boolean),
     onNext: () => { $("reveal").hidden = true; },
-  });
+  }));
 }
 
 async function newSet() {
@@ -548,6 +553,8 @@ function renderSetup() {
 
 async function boot() {
   try {
+    // Three files, not four: `details.json` is the catalogue prose the reveal
+    // shows, and it is fetched once a round is dealt. See site/records.js.
     const [puzzles, context, lookalikes] = await Promise.all(
       ["puzzles", "context", "lookalikes"].map((n) =>
         fetch(`${DATA}${n}.json`).then((r) => {

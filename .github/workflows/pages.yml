@@ -34,15 +34,18 @@ jobs:
         run: node --test test/*.test.js
       - name: Data files are present and non-trivial
         run: |
-          for f in puzzles context lookalikes; do
+          for f in puzzles details context lookalikes; do
             test -s "site/data/$f.json" || { echo "missing site/data/$f.json"; exit 1; }
           done
           python - <<'PY'
           import json, pathlib
           puzzles = json.loads(pathlib.Path("site/data/puzzles.json").read_text())
+          details = json.loads(pathlib.Path("site/data/details.json").read_text())
           assert len(puzzles) > 2000, f"only {len(puzzles)} puzzles"
           assert all(p["iiif"] and p["catalogue"] for p in puzzles), "a puzzle is missing links"
-          print(f"{len(puzzles)} puzzles OK")
+          ids = {p["id"] for p in puzzles}
+          assert ids == set(details), "puzzles.json and details.json disagree"
+          print(f"{len(puzzles)} puzzles OK, all with details")
           PY
 
   deploy:

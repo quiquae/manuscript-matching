@@ -49,9 +49,10 @@ then keep stale ES modules and an edit appears not to have happened.
 
     build/        the extraction pipeline (stdlib only)
     tests/        pytest
-    scripts/      manifest warm-up, and the no-cache dev server
+    scripts/      manifest warm-up, the link-preview card, and the no-cache dev server
     site/         the static site; this directory is what gets deployed
     site/data/    committed build output
+    site/og.png   the link-preview card; `python3 scripts/make_og.py` after a palette change
     data/cache/   downloaded corpus and manifest cache (gitignored)
     docs/specs/   the design
     docs/superpowers/plans/   the implementation plan
@@ -61,6 +62,15 @@ then keep stale ES modules and an edit appears not to have happened.
 CI runs both test suites on every push. Deploying to GitHub Pages is manual — Actions →
 *Test, and deploy on request* → Run workflow — and should stay manual until the licence question
 below is settled.
+
+The published address is `https://quiquae.github.io/manuscript-matching/`, which is written into
+every canonical URL, the sitemap, `robots.txt`, the JSON-LD block and `404.html`. Changing it
+means changing it in all of them, and `site/test/seo.test.js` fails until they agree.
+
+**Two things must be true before Pages can serve this.** The repository is private, and GitHub
+Pages is unavailable on private repositories outside Enterprise Cloud — so publishing means
+making the repository public. And a public site is exactly what the licence question below is
+about. They are one decision, not two.
 
 ## Attribution and licensing
 

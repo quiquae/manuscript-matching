@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img"
+     aria-label="Manuscript Matching">
+  <!-- A page with a rubricated initial. Drawn as geometry, not type, so it is
+       identical wherever it renders and still legible at 16px. -->
+  <rect width="32" height="32" rx="4" fill="#f4efe4"/>
+  <rect x="6.5" y="5.5" width="19" height="21" rx="2" fill="#fbf8f1" stroke="#d8cdb8"/>
+  <rect x="9" y="8" width="7" height="7" rx="1" fill="#9e2b25"/>
+  <g fill="#6f6150">
+    <rect x="18" y="9" width="5" height="1.6" rx=".8"/>
+    <rect x="18" y="12.4" width="5" height="1.6" rx=".8"/>
+    <rect x="9" y="17.6" width="14" height="1.6" rx=".8"/>
+    <rect x="9" y="21" width="14" height="1.6" rx=".8"/>
+  </g>
+</svg>

@@ -165,6 +165,10 @@ main section { margin-top: 2rem; }
   padding-bottom: 1.25rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--rule);
 }
 .setup-group .label { margin-bottom: .5rem; }
+.round-label {
+  margin: 0 0 .5rem; font-size: .7rem; font-weight: 600;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--rubric);
+}
 .prompt { font-size: 1.05rem; margin: 0 0 1.25rem; min-height: 1.6em; }
 
 .table {

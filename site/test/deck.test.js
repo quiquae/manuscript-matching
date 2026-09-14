@@ -96,3 +96,45 @@ test("a set never exceeds what the filtered pool can legally supply", () => {
   ];
   assert.ok(buildSet(tiny, { size: 5, seed: "x" }).length <= 2);
 });
+
+/**
+ * The disjointness property, over every slice and difficulty a player can pick.
+ *
+ * This replaces a pytest property test that dealt 200 decks from the whole
+ * corpus at one fixed gap setting. The rule it guarded now lives in this file,
+ * so the test does too — and it covers more than it used to, because the
+ * collection and difficulty chips are the thing that made a pre-built deck
+ * impossible in the first place.
+ *
+ * `buildSet` is allowed to return a short set when nothing legal remains: a
+ * short set beats an unanswerable one. What it must never do is return a set
+ * containing a pair whose ranges overlap, because then both orders of that pair
+ * are defensible and the player is marked wrong for being right.
+ */
+test("no dealt set ever contains an overlapping pair, over 200 deals", () => {
+  const p = pool();
+  let deals = 0;
+  for (let i = 0; i < 200; i++) {
+    const collection = COLLECTIONS[i % COLLECTIONS.length];
+    const difficulty = DIFFICULTIES[i % DIFFICULTIES.length];
+    const set = buildSet(p.filter(collection.test), {
+      size: difficulty.size,
+      seed: `deal-${i}`,
+      startGap: difficulty.startGap,
+      floor: difficulty.floor,
+    });
+    deals += 1;
+    assert.ok(set.length > 1, `${collection.id}/${difficulty.id} dealt ${set.length}`);
+    assert.equal(new Set(set.map((c) => c.id)).size, set.length, "a card was dealt twice");
+    for (const a of set) {
+      for (const b of set) {
+        if (a.id === b.id) continue;
+        assert.ok(a.not_after < b.not_before || b.not_after < a.not_before,
+                  `${collection.id}/${difficulty.id} seed deal-${i}: ` +
+                  `${a.id} [${a.not_before}-${a.not_after}] overlaps ` +
+                  `${b.id} [${b.not_before}-${b.not_after}]`);
+      }
+    }
+  }
+  assert.equal(deals, 200, "the loop did not run");
+});

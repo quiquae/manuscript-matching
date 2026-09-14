@@ -3,8 +3,10 @@
 Three browser games that teach you to read a medieval manuscript by eye, built on the Bodleian
 Libraries' open TEI catalogue ([bodleian/medieval-mss](https://github.com/bodleian/medieval-mss)).
 
-- **Arrange** — drag a handful of manuscripts into date order, oldest first. Filter by collection
-  (ancient papyri, medieval codices, illuminated, made in England) and by difficulty.
+- **Arrange** — drag a handful of manuscripts into date order, oldest first. The **Daily** round
+  deals everyone the same set, seeded from the date, and gives you a spoiler-free grid to paste.
+  **Endless** lets you choose the slice (ancient papyri, medieval codices, illuminated, made in
+  England) and the difficulty.
 - **Look Closer** — a page under a near-black veil, opened at 9× on its busiest detail. Pan, zoom,
   spend five looks, then commit to a reading: when, where, on what, in which language — and name
   the hand, graded against the cataloguer's own description of it.

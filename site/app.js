@@ -6,13 +6,16 @@
  * before you commit: you have the image, and how much of it you choose to look
  * at costs you score.
  */
-import { COLLECTIONS, DIFFICULTIES, buildSet } from "./deck.js";
+import { COLLECTIONS, DIFFICULTIES, buildSet, seededRandom } from "./deck.js";
 import { cropBox, EXPANSION_STEPS, focusPoint } from "./crop.js";
 import { isReadable, parchmentFraction } from "./readable.js";
 import { orderResult } from "./order.js";
-import { MULTIPLIERS } from "./scoring.js";
+import { MULTIPLIERS, shareGrid } from "./scoring.js";
 import { renderReveal } from "./reveal.js";
 import { createShelf } from "./shelf.js";
+import {
+  createDailyLog, DAILY_COLLECTION, DAILY_DIFFICULTY, dailyLabel, dailySeed, todayISO,
+} from "./daily.js";
 
 const DATA = "data/";
 const IIIF_WIDTH = 682;
@@ -30,14 +33,25 @@ const cardSize = () =>
 
 const $ = (id) => document.getElementById(id);
 const shelf = createShelf(window.localStorage);
+const dailyLog = createDailyLog(window.localStorage);
+
+/** By id, never by position: the order of these lists is presentational. */
+const pick = (items, id) => items.find((i) => i.id === id) ?? items[0];
+
+const ROUNDS = [
+  { id: "daily", label: "Daily", blurb: "One set a day, the same for everyone." },
+  { id: "endless", label: "Endless", blurb: "Deal as many as you like, your way." },
+];
 
 const state = {
   puzzles: [],
   byId: new Map(),
   context: {},
   lookalikes: {},
-  collection: COLLECTIONS[0],
-  difficulty: DIFFICULTIES[1],
+  round: ROUNDS[0],
+  day: todayISO(),
+  collection: pick(COLLECTIONS, DAILY_COLLECTION),
+  difficulty: pick(DIFFICULTIES, DAILY_DIFFICULTY),
   cards: [],          // { puzzle, image, focus, zoom }
   drag: null,
   committed: false,
@@ -241,15 +255,74 @@ function updateStats() {
   $("best").textContent = state.best;
 }
 
+/* ------------------------------------------------------------------- daily */
+
+const isDaily = () => state.round.id === "daily";
+
+/**
+ * The day's result, and a grid you can paste somewhere.
+ *
+ * One square per manuscript and no dates, shelfmarks or digits, so posting it
+ * cannot spoil the day for anyone who has not played. The first attempt is the
+ * one kept: re-dealing the same set is allowed, inflating the record is not.
+ */
+function recordDaily(result) {
+  const grid = shareGrid(state.cards.map((c) => ({
+    correct: !c.wrong,
+    expansions: c.zoom,
+  })));
+  const earlier = dailyLog.read(state.day);
+  const row = dailyLog.write(state.day, {
+    score: result.score, grid, right: result.right, total: result.total,
+  });
+
+  $("grid").textContent = row.grid;
+  $("grid").hidden = false;
+  $("share").hidden = false;
+  if (earlier) {
+    $("prompt").textContent += ` Your first go today stands: ${earlier.score} points.`;
+  }
+}
+
+/** Clipboard where it is allowed, a selectable block where it is not. */
+async function copyResult() {
+  const row = dailyLog.read(state.day);
+  if (!row) return;
+  const text = [
+    `Manuscript Matching — ${dailyLabel(state.day)}`,
+    row.grid,
+    `${row.right}/${row.total} pairs · ${row.score} points`,
+    window.location.href.split(/[?#]/)[0],
+  ].join("\n");
+  try {
+    await navigator.clipboard.writeText(text);
+    $("share").textContent = "Copied";
+  } catch {
+    // Insecure context, or permission refused. Put it on the page and select
+    // it, so the player can still copy by hand rather than being told no.
+    $("grid").textContent = text;
+    $("share").textContent = "Copy it from above";
+    const range = document.createRange();
+    range.selectNodeContents($("grid"));
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+  }
+}
+
 /* ------------------------------------------------------------------ rounds */
 
 async function addCards(count) {
   const pool = state.puzzles.filter(state.collection.test);
   const kept = state.cards.map((c) => c.puzzle);
   const wanted = kept.length + count;
+  // The daily seed is the date and nothing else, so every player is dealt the
+  // same manuscripts from the same fixed slice. Endless re-seeds per deal.
+  const seed = isDaily()
+    ? dailySeed(state.day)
+    : `${state.collection.id}-${state.difficulty.id}-${Date.now()}`;
   const chosen = buildSet(pool, {
     size: wanted,
-    seed: `${state.collection.id}-${state.difficulty.id}-${Date.now()}`,
+    seed,
     startGap: state.difficulty.startGap,
     floor: state.difficulty.floor,
     keep: kept,
@@ -284,7 +357,7 @@ async function addCards(count) {
   if (rejected.size) {
     const spare = buildSet(pool.filter((p) => !rejected.has(p.id)), {
       size: wanted,
-      seed: `retry-${Date.now()}`,
+      seed: `retry-${seed}`,
       startGap: state.difficulty.startGap,
       floor: state.difficulty.floor,
       keep: [...kept, ...loaded.filter(Boolean).map((c) => c.puzzle)],
@@ -303,16 +376,21 @@ async function addCards(count) {
   }
 
   // Shuffle only the newly dealt cards into the row, so anything the player
-  // has already arranged keeps its place.
+  // has already arranged keeps its place. The daily seeds this too: the
+  // starting arrangement is part of the puzzle, so two players must be handed
+  // the same row and not merely the same five manuscripts.
+  const shuffle = isDaily() ? seededRandom(`${seed}-row`) : Math.random;
   for (let i = state.cards.length - 1; i > kept.length; i--) {
-    const j = kept.length + Math.floor(Math.random() * (i - kept.length + 1));
+    const j = kept.length + Math.floor(shuffle() * (i - kept.length + 1));
     [state.cards[i], state.cards[j]] = [state.cards[j], state.cards[i]];
   }
 
   state.committed = false;
   state.drag = null;
+  const standing = isDaily() ? dailyLog.read(state.day) : null;
   $("prompt").textContent =
-    "Drag them into order, oldest on the left. Or nudge one with ‹ ›.";
+    "Drag them into order, oldest on the left. Or nudge one with ‹ ›."
+    + (standing ? ` You scored ${standing.score} earlier today.` : "");
   $("check").hidden = false;
   $("more").hidden = true;
   $("again").hidden = true;
@@ -345,6 +423,7 @@ function check() {
   $("prompt").textContent = result.perfect
     ? `Every pair right. ${result.score} points.`
     : `${result.right} of ${result.total} pairs in the right order. ${result.score} points.`;
+  if (isDaily()) recordDaily(result);
 
   // Show the full record for one card: the wrongest if any, else the oldest.
   const focusCard = state.cards.find((c) => c.wrong) ?? state.cards[0];
@@ -367,6 +446,9 @@ async function newSet() {
   $("notes").value = "";
   delete $("notes").dataset.saved;
   imageCache.clear();
+  $("grid").hidden = true;
+  $("share").hidden = true;
+  $("share").textContent = "Copy result";
   await addCards(state.difficulty.size);
 }
 
@@ -438,6 +520,31 @@ window.addEventListener("resize", () => {
 $("check").onclick = check;
 $("more").onclick = () => addCards(state.difficulty.grow);
 $("again").onclick = newSet;
+$("share").onclick = copyResult;
+
+/**
+ * The collection and difficulty chips.
+ *
+ * On a daily they are drawn disabled rather than hidden: a player needs to see
+ * what they are playing with, and that they did not pick it.
+ */
+function renderSetup() {
+  chips($("collections"), COLLECTIONS, state.collection, (c) => {
+    state.collection = c;
+    newSet();
+  });
+  chips($("difficulties"), DIFFICULTIES, state.difficulty, (d) => {
+    state.difficulty = d;
+    newSet();
+  });
+  const locked = isDaily();
+  for (const el of [$("collections"), $("difficulties")]) {
+    for (const chip of el.children) chip.disabled = locked;
+  }
+  $("round-label").textContent = locked
+    ? `Daily · ${dailyLabel(state.day)}`
+    : "Endless · your own slice";
+}
 
 async function boot() {
   try {
@@ -451,14 +558,16 @@ async function boot() {
     puzzles.forEach((p) => state.byId.set(p.id, p));
     Object.assign(state, { context, lookalikes });
 
-    chips($("collections"), COLLECTIONS, state.collection, (c) => {
-      state.collection = c;
+    chips($("modes"), ROUNDS, state.round, (r) => {
+      state.round = r;
+      if (isDaily()) {
+        state.collection = pick(COLLECTIONS, DAILY_COLLECTION);
+        state.difficulty = pick(DIFFICULTIES, DAILY_DIFFICULTY);
+      }
+      renderSetup();
       newSet();
     });
-    chips($("difficulties"), DIFFICULTIES, state.difficulty, (d) => {
-      state.difficulty = d;
-      newSet();
-    });
+    renderSetup();
     await newSet();
   } catch (err) {
     $("prompt").textContent =

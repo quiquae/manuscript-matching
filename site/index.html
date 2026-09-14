@@ -24,6 +24,10 @@
 <main>
   <section id="setup" class="setup">
     <div class="setup-group">
+      <h2 class="label">Round</h2>
+      <div id="modes" class="choices"></div>
+    </div>
+    <div class="setup-group">
       <h2 class="label">Play with</h2>
       <div id="collections" class="choices"></div>
     </div>
@@ -32,6 +36,8 @@
       <div id="difficulties" class="choices"></div>
     </div>
   </section>
+
+  <p id="round-label" class="round-label"></p>
 
   <p id="prompt" class="prompt">Loading the manuscripts…</p>
 
@@ -47,7 +53,10 @@
     <button id="check">Check the order</button>
     <button id="more" hidden>Add two more</button>
     <button id="again" hidden>New set</button>
+    <button id="share" hidden>Copy result</button>
   </div>
+
+  <p id="grid" class="grid" hidden aria-live="polite"></p>
 
   <dl id="stats">
     <div><dt>Score</dt><dd id="score">0</dd></div>

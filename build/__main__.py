@@ -1,12 +1,10 @@
-"""python -m build  ->  data/{puzzles,decks,context,lookalikes}.json"""
+"""python -m build  ->  data/{puzzles,context,lookalikes}.json"""
 import json
 from dataclasses import asdict
-from datetime import date, timedelta
 from pathlib import Path
 
 from build.aggregates import corpus_context, lookalike_index
 from build.corpus import corpus_root, record_files
-from build.decks import build_daily_decks
 from build.manifests import image_service
 from build.places import load_places
 from build.records import Record, extract, playable
@@ -14,7 +12,6 @@ from build.works import load_subjects
 
 CACHE = Path("data/cache")
 OUT = Path("site/data")
-DAYS = 400
 
 # Fields the browser never uses; dropped to keep puzzles.json small.
 DROP = {"db_uuid", "place_id"}
@@ -49,14 +46,9 @@ def main() -> None:
     playable_by_id = {r.id: r for r in candidates}
     resolved = [playable_by_id[r["id"]] for r in rows]
 
-    pool = [(r["id"], r["not_before"], r["not_after"]) for r in rows]
-    today = date.today()
-    days = [(today + timedelta(days=n)).isoformat() for n in range(DAYS)]
-
     OUT.mkdir(exist_ok=True)
     written = {
         "puzzles": rows,
-        "decks": build_daily_decks(pool, days),
         "context": corpus_context(resolved),
         "lookalikes": lookalike_index(resolved),
     }
@@ -64,10 +56,6 @@ def main() -> None:
         path = OUT / f"{name}.json"
         path.write_text(json.dumps(payload, ensure_ascii=False))
         print(f"  wrote {path}  {path.stat().st_size / 1e6:.1f} MB")
-
-    short = [d for d in written["decks"].values() if len(d) < 10]
-    if short:
-        print(f"  warning: {len(short)} of {DAYS} decks are shorter than 10 cards")
 
 
 if __name__ == "__main__":

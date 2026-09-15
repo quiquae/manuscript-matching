@@ -12,13 +12,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from build.pages import browse_page, manuscript_page, sitemap   # noqa: E402
+from build.pages import browse_page, indexable, manuscript_page, sitemap  # noqa: E402
 
 SITE = Path(__file__).resolve().parent.parent / "site"
 DATA = SITE / "data"
 
 # The pages that are written by hand and live at the top level.
-HAND_WRITTEN = ["", "look.html", "shelf.html", "search.html"]
+HAND_WRITTEN = ["", "look.html", "shelf.html", "search.html", "dating.html"]
 
 
 def main() -> None:
@@ -47,9 +47,19 @@ def main() -> None:
     (SITE / "browse.html").write_text(browse_page(index, slug_of, vocab))
     print("  wrote site/browse.html")
 
-    paths = HAND_WRITTEN + ["browse.html"] + [f"ms/{s}.html" for s in sorted(slug_of.values())]
+    # A page marked noindex must not be in the sitemap: submitting a URL and
+    # then telling the crawler not to index it is a contradiction Search Console
+    # reports back as an error, once per URL.
+    offered = sorted(slug_of[r["id"]] for r in index
+                     if indexable(details.get(r["id"], {})))
+    held_back = len(index) - len(offered)
+    paths = HAND_WRITTEN + ["browse.html"] + [f"ms/{s}.html" for s in offered]
     (SITE / "sitemap.xml").write_text(sitemap(paths))
     print(f"  wrote site/sitemap.xml  {len(paths)} URLs")
+    if held_back:
+        # Said out loud, because a number that quietly shrinks is how a
+        # truncation gets mistaken for a complete list.
+        print(f"  {held_back} pages are noindex (no catalogue prose) and not listed")
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@
   <url><loc>https://quiquae.github.io/manuscript-matching/look.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/shelf.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/search.html</loc></url>
+  <url><loc>https://quiquae.github.io/manuscript-matching/dating.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/browse.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/brasenose-college-ms-91.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/christ-church-ms-100.html</loc></url>
@@ -1179,12 +1180,10 @@
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-bib-d-9.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-bib-g-3-p.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-bib-g-4-p.html</loc></url>
-  <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-a-16-p-1-3.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-b-10-p.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-b-13-p-1-5.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-b-16-p-1-3.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-b-17-p-1-2.html</loc></url>
-  <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-b-18-p.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-b-19-p-1-3.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-b-23-p.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-b-3-p-1-2-4.html</loc></url>
@@ -1193,7 +1192,6 @@
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-c-267-p-a.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-c-27-p.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-c-39-p.html</loc></url>
-  <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-c-40-p.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-c-54-p.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-c-59-p.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-c-72-p-1-7.html</loc></url>
@@ -1205,8 +1203,6 @@
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-d-124-p.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-d-127-p.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-d-128-1-4-p.html</loc></url>
-  <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-d-129-p.html</loc></url>
-  <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-d-130-p.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-d-148.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-d-149-p.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-d-57-p.html</loc></url>
@@ -1250,9 +1246,6 @@
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-e-87-p.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-e-89-p.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-e-99-p.html</loc></url>
-  <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-f-25-p.html</loc></url>
-  <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-f-26-p.html</loc></url>
-  <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-f-27-p.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-f-45-p.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-f-59-p.html</loc></url>
   <url><loc>https://quiquae.github.io/manuscript-matching/ms/ms-gr-class-f-60-p.html</loc></url>

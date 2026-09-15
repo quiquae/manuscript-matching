@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from build.pages import BASE, browse_page, manuscript_page, sitemap
+from build.pages import (BASE, browse_page, indexable, manuscript_page, prose_length,
+                         sitemap)
 from build.vocab import slugs
 
 BUILT = Path("site/data")
@@ -181,12 +182,42 @@ def test_every_manuscript_has_a_unique_slug():
     assert all(re.fullmatch(r"[a-z0-9-]+", s) for s in got), "a slug is not URL-safe"
 
 
+# ------------------------------------------------------- what is worth indexing
+
+def test_a_page_with_no_catalogue_prose_is_not_offered_to_a_crawler():
+    assert indexable({}) is False
+    assert indexable({"place_name": "England"}) is False, \
+        "an identifier is not prose"
+    assert indexable({"hand": "Gothic textualis."}) is True
+    assert indexable({"contents": ["Psalter"]}) is True
+    assert indexable({"owners": [{"name": "Douce"}]}) is True
+    assert indexable({"decoration": ["Fine initials"]}) is True
+
+
+def test_prose_length_counts_words_not_fields():
+    assert prose_length({"hand": "", "layout": "", "decoration": []}) == 0
+    assert prose_length({"contents": ["ab", "cde"]}) == 5
+
+
+def test_a_bare_page_says_noindex_but_still_says_follow():
+    """Follow, so the crawler still reaches the neighbours it links to."""
+    bare = manuscript_page(_record(), {}, VOCAB,
+                           {"manuscript_1": _record()}, {"manuscript_1": "ms-douce-1"}, {})
+    assert '<meta name="robots" content="noindex,follow">' in bare
+
+
+def test_a_page_with_prose_carries_no_robots_tag():
+    assert "noindex" not in _page()
+
+
 @built
 def test_the_committed_sitemap_is_not_stale():
     """A sitemap listing a page that no longer exists is a crawl error per URL."""
     rows = json.loads((BUILT / "puzzles.json").read_text())
-    paths = (["", "look.html", "shelf.html", "search.html", "browse.html"]
-             + [f"ms/{s}.html" for s in sorted(r["slug"] for r in rows)])
+    details = json.loads((BUILT / "details.json").read_text())
+    offered = sorted(r["slug"] for r in rows if indexable(details.get(r["id"], {})))
+    paths = (["", "look.html", "shelf.html", "search.html", "dating.html", "browse.html"]
+             + [f"ms/{s}.html" for s in offered])
     committed = Path("site/sitemap.xml")
     if not committed.exists():
         pytest.skip("run scripts/make_pages.py first")
@@ -204,3 +235,37 @@ def test_the_browse_page_reaches_every_manuscript():
     missing = set(slug_of.values()) - linked
     assert not missing, f"{len(missing)} manuscripts are unreachable by a crawler"
     assert page.count("<h1") == 1
+
+
+@built
+def test_no_page_is_both_in_the_sitemap_and_marked_noindex():
+    """Submitting a URL and then refusing to index it is a reported error.
+
+    Checked against the real sitemap rather than the generator's own variables,
+    because the two could agree in the code and disagree on disk.
+    """
+    rows = json.loads((BUILT / "puzzles.json").read_text())
+    details = json.loads((BUILT / "details.json").read_text())
+    listed = set(re.findall(r"<loc>[^<]*/ms/([a-z0-9-]+)\.html</loc>",
+                            Path("site/sitemap.xml").read_text()))
+    contradictions = [r["slug"] for r in rows
+                      if r["slug"] in listed and not indexable(details.get(r["id"], {}))]
+    assert not contradictions, contradictions
+    # And the ones held back are held back for the stated reason, not lost.
+    held = [r["slug"] for r in rows if r["slug"] not in listed]
+    assert all(not indexable(details.get(r["id"], {}))
+               for r in rows if r["slug"] in set(held)), \
+        "a page with catalogue prose is missing from the sitemap"
+
+
+@built
+def test_a_noindex_page_is_still_reachable_by_a_crawler():
+    """noindex,follow only works if something still links to it."""
+    rows = json.loads((BUILT / "puzzles.json").read_text())
+    details = json.loads((BUILT / "details.json").read_text())
+    slug_of = {r["id"]: r["slug"] for r in rows}
+    page = browse_page(rows, slug_of, json.loads((BUILT / "vocab.json").read_text()))
+    bare = [r["slug"] for r in rows if not indexable(details.get(r["id"], {}))]
+    assert bare, "the rule is not being exercised; check the corpus"
+    for slug in bare:
+        assert f'href="ms/{slug}.html"' in page, f"{slug} is unreachable"

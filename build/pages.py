@@ -33,13 +33,43 @@ def e(text):
 FOLD_OVER = 700
 
 
-def _head(title, description, path, image, extra=""):
+# The fields that make a page worth indexing: the cataloguer's own words, as
+# opposed to the identifiers every page has.
+_PROSE = ("hand", "layout", "acquisition")
+_LISTED = ("decoration", "contents", "subjects")
+
+
+def prose_length(detail: dict) -> int:
+    """How much the catalogue actually says about this manuscript."""
+    n = sum(len(str(detail.get(f) or "")) for f in _PROSE)
+    n += sum(len(str(x)) for f in _LISTED for x in (detail.get(f) or []))
+    return n + sum(len(str(o.get("name") or "")) for o in (detail.get("owners") or []))
+
+
+def indexable(detail: dict) -> bool:
+    """Whether a page should be offered to a search engine.
+
+    Eight of 2,201 records -- all Greek papyri -- carry no catalogue prose at
+    all: no hand, no layout, no decoration, no contents, no owners. Those pages
+    still hold a photograph, a shelfmark, a catalogued date, an origin and a
+    link to the record, so they are worth existing and worth crawling. They are
+    not worth indexing, because a page whose only text is its own identifiers is
+    what a search engine means by a doorway.
+
+    A rule rather than a list of eight: if the Bodleian catalogues a bare record
+    tomorrow it is handled without anybody noticing it needed handling.
+    """
+    return prose_length(detail) > 0
+
+
+def _head(title, description, path, image, extra="", robots=""):
     """The metadata block, identical in shape to the hand-written pages'."""
     url = BASE + path
     return f"""<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{e(title)}</title>
 <meta name="description" content="{e(description)}">
+{robots}
 <link rel="canonical" href="{e(url)}">
 <link rel="icon" href="{'../' if '/' in path else ''}favicon.svg" type="image/svg+xml">
 <meta name="theme-color" content="#f4efe4">
@@ -69,11 +99,12 @@ def _masthead(up="", site_is_h1=False):
 <header>
   {title}<a href="{up}index.html">Manuscript Matching</a>{close}
   <p class="game-name">Bodleian manuscripts</p>
-  <nav aria-label="Games">
+  <nav aria-label="Sections">
     <a class="mode" href="{up}index.html">Arrange</a>
     <a class="mode" href="{up}look.html">Look Closer</a>
     <a class="mode" href="{up}shelf.html">The Shelf</a>
     <a class="mode" href="{up}search.html">Search</a>
+    <a class="mode" href="{up}dating.html">Dating by eye</a>
   </nav>
 </header>"""
 
@@ -259,7 +290,9 @@ def manuscript_page(row, detail, vocab, index_by_id, slug_of, lookalikes):
     return f"""<!doctype html>
 <html lang="en">
 <head>
-{_head(f"{shelfmark} — Bodleian Libraries", described, f"ms/{slug}.html", image, ld_block)}
+{_head(f"{shelfmark} — Bodleian Libraries", described, f"ms/{slug}.html", image, ld_block,
+        "" if indexable(detail)
+        else '<meta name="robots" content="noindex,follow">')}
 </head>
 <body>
 {_masthead("../")}

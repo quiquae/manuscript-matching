@@ -57,10 +57,11 @@ def test_the_page_names_its_source_and_tells_you_what_to_cite():
     # And no claim about a conversation with the Library: the pages credit the
     # source and say what to cite, and assert nothing about permission.
     #
-    # The phrase, not the bare word. Four records carry the word in the
-    # rightsholder's own required credit -- "© Jesus College, Oxford ... Please
-    # include the permission statement" -- which must appear verbatim, so a test
-    # on the word would fire on exactly the attribution it is meant to protect.
+    # The phrase, not the bare word. Four records carry the word inside the
+    # rightsholder's own credit -- "© Jesus College, Oxford ... You do not need
+    # to request permission, but in case of enquiries, please contact ..." --
+    # which must appear verbatim, so a test on the word would fire on exactly
+    # the attribution it exists to protect.
     for claim in ["with the Library’s permission", "reused with the Library",
                   "by permission of the Bodleian"]:
         assert claim not in page, claim

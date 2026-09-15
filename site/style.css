@@ -203,14 +203,17 @@ main section { margin-top: 2rem; }
   transition: transform .16s ease, box-shadow .16s ease;
 }
 
-/* The image is the handle: grab it to reorder, tap it to look closer. */
+/* The image is the handle: grab it to reorder, tap it to work the crop dial. */
 .card-seat {
   display: block; border: 1px solid var(--rule); background: #efe9df;
   box-shadow: var(--shadow); cursor: grab; touch-action: none;
   position: relative;
 }
 .card-seat::after {
-  content: "tap to look closer";
+  /* Written by app.js, because the next tap widens on the first three steps
+     and returns to the detail on the last. A fixed string here said "look
+     closer" over a control that showed more of the page. */
+  content: attr(data-hint);
   position: absolute; inset: auto 0 0 0; padding: .3rem;
   font-size: .62rem; text-align: center; letter-spacing: .04em;
   background: rgb(43 36 25 / 72%); color: var(--parchment);
@@ -233,12 +236,25 @@ main section { margin-top: 2rem; }
 .card.is-right .card-seat { border-color: var(--green); border-width: 2px; }
 .card.is-wrong .card-seat { border-color: var(--rubric); border-width: 2px; }
 
-.card-bar { display: flex; gap: .3rem; justify-content: center; }
+.card-bar {
+  display: flex; gap: .3rem .6rem; justify-content: center; flex-wrap: wrap;
+  align-self: center;                      /* stay centred under the page */
+}
+/* The crop dial and the reorder arrows wrap as units. Letting the bar break
+   wherever it likes put one arrow on a line of its own. */
+.card-group { display: flex; gap: .3rem; flex: 0 0 auto; }
 .icon {
   padding: .22rem .55rem; font-size: .95rem; line-height: 1.2;
   min-width: 2.1rem; text-align: center;
 }
 .icon:hover:not(:disabled) { background: var(--ink); color: var(--parchment); border-color: var(--ink); }
+
+/* The crop dial is worded rather than drawn. Every glyph for "show more of
+   the page" reads as a zoom, and this zooms the other way. */
+.icon.crop {
+  font-size: .68rem; letter-spacing: .03em; padding: .28rem .4rem;
+  min-width: 0; text-transform: lowercase;
+}
 
 .card-facts {
   display: flex; flex-direction: column; gap: .1rem;
@@ -258,8 +274,8 @@ main section { margin-top: 2rem; }
    wait reads as a deal in progress rather than as a broken image, and nothing
    about the card moves or resizes when the real page lands. */
 /* `progress` would say "you cannot touch this", and the player can: a
-   face-down card drags like any other. Only looking closer is unavailable,
-   and that button is disabled to say so. */
+   face-down card drags like any other. Only the crop dial is unavailable,
+   and those buttons are disabled to say so. */
 .card.is-pending .card-seat { cursor: grab; }
 .card.is-pending .card-seat::after { content: none; }
 .card.is-pending .card-seat canvas { animation: dealing 1.7s ease-in-out infinite; }
@@ -356,6 +372,7 @@ h1 a:hover { color: var(--rubric); }
 /* Narrow viewports: smaller controls so two manuscripts still fit side by side. */
 @media (max-width: 26rem) {
   .icon { min-width: 1.8rem; padding: .18rem .35rem; font-size: .85rem; }
+  .icon.crop { min-width: 0; padding: .18rem .28rem; font-size: .6rem; }
   .table { gap: .5rem; }
   .card-facts strong { font-size: .78rem; }
   .card-facts span, .card-facts em { font-size: .66rem; }

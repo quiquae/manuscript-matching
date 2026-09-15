@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cropBox, EXPANSION_STEPS, focusPoint } from "../crop.js";
+import {
+  charged, clampStep, cropBox, cycleStep, EXPANSION_STEPS, focusPoint, LAST_STEP, moveDial,
+} from "../crop.js";
 
 test("crop box is centred on the focus point", () => {
   assert.deepEqual(cropBox(1000, 1000, 0.5, 0.5, 0.2), { x: 400, y: 400, w: 200, h: 200 });
@@ -183,4 +185,47 @@ test("focus prefers dense text over a single hard edge", () => {
   }
   const { cx } = focusPoint({ data: px, width: W, height: H }, 6);
   assert.ok(cx > 0.5, `cx ${cx} landed on the backing edge rather than the writing`);
+});
+
+/* ---- the crop dial ------------------------------------------------------ */
+
+test("widening raises both what is drawn and what is charged for", () => {
+  assert.deepEqual(moveDial({ zoom: 0, seen: 0 }, 1), { zoom: 1, seen: 1 });
+  assert.deepEqual(moveDial({ zoom: 1, seen: 1 }, 2), { zoom: 2, seen: 2 });
+});
+
+test("going back to the detail is allowed, and is not a refund", () => {
+  // The whole bug: one tap used to spend the tight crop for the rest of the
+  // round. Stepping back must restore the view without restoring the score.
+  const wide = moveDial({ zoom: 0, seen: 0 }, 3);
+  const back = moveDial(wide, 0);
+  assert.equal(back.zoom, 0, "the detail is reachable again");
+  assert.equal(back.seen, 3, "but the round is still charged for the whole leaf");
+});
+
+test("re-widening within what was paid for adds nothing to the bill", () => {
+  let card = { zoom: 0, seen: 0 };
+  for (const step of [2, 0, 2, 1, 0, 2]) card = moveDial(card, step);
+  assert.equal(card.seen, 2);
+});
+
+test("the dial cannot be driven off either end", () => {
+  assert.equal(clampStep(-4), 0);
+  assert.equal(clampStep(99), LAST_STEP);
+  assert.deepEqual(moveDial({ zoom: 0, seen: 0 }, -1), { zoom: 0, seen: 0 });
+  assert.equal(moveDial({ zoom: 0, seen: 0 }, 99).zoom, LAST_STEP);
+});
+
+test("tapping cycles through every step and back to the detail", () => {
+  const seen = [];
+  let zoom = 0;
+  for (let i = 0; i < EXPANSION_STEPS.length; i++) { seen.push(zoom); zoom = cycleStep(zoom); }
+  assert.deepEqual(seen, EXPANSION_STEPS.map((_, i) => i), "every step is reachable by tapping");
+  assert.equal(zoom, 0, "the tap after the whole leaf returns to the detail");
+});
+
+test("a round is charged on the widest each card reached, not on the current view", () => {
+  const cards = [{ seen: 3, zoom: 0 }, { seen: 1, zoom: 1 }, { seen: 0, zoom: 0 }];
+  assert.equal(charged(cards), 4);
+  assert.equal(charged([]), 0);
 });

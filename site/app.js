@@ -7,7 +7,9 @@
  * at costs you score.
  */
 import { ambiguous, COLLECTIONS, DIFFICULTIES, buildSet, seededRandom } from "./deck.js";
-import { cropBox, EXPANSION_STEPS, focusPoint } from "./crop.js";
+import {
+  charged, clampStep, cropBox, cycleStep, EXPANSION_STEPS, focusPoint, LAST_STEP, moveDial,
+} from "./crop.js";
 import { isReadable, parchmentFraction } from "./readable.js";
 import { orderResult } from "./order.js";
 import { MULTIPLIERS, shareGrid } from "./scoring.js";
@@ -55,7 +57,7 @@ const state = {
   day: todayISO(),
   collection: pick(COLLECTIONS, DAILY_COLLECTION),
   difficulty: pick(DIFFICULTIES, DAILY_DIFFICULTY),
-  cards: [],          // { puzzle, image, focus, zoom }
+  cards: [],          // { puzzle, image, focus, zoom, seen }
   drag: null,
   committed: false,
   score: 0,
@@ -181,7 +183,7 @@ function paint(card) {
 
 /* ------------------------------------------------------------------ table */
 
-const zoomsUsed = () => state.cards.reduce((n, c) => n + c.zoom, 0);
+const zoomsUsed = () => charged(state.cards);
 
 function moveCard(from, to) {
   if (to < 0 || to >= state.cards.length) return;
@@ -190,6 +192,19 @@ function moveCard(from, to) {
   renderTable();
 }
 
+/** Move one card's crop dial. The arithmetic, and why it is two numbers, is in crop.js. */
+function showStep(card, step) {
+  // A face-down seat has no page to widen or tighten yet.
+  if (state.committed || card.pending) return;
+  if (clampStep(step) === card.zoom) return;
+  Object.assign(card, moveDial(card, step));
+  paint(card);
+  updateStats();
+}
+
+/** A tap on the page works the dial, wrapping from the whole leaf to the detail. */
+const cycleCard = (card) => showStep(card, cycleStep(card.zoom));
+
 /**
  * Dragging, on document-level listeners rather than pointer capture.
  *
@@ -197,15 +212,6 @@ function moveCard(from, to) {
  * element being dragged; listening on the document survives that, and the drag
  * is tracked by card object rather than by node.
  */
-/** One more expansion step on a single card. Costs score, like every look. */
-function zoomCard(card) {
-  // A face-down seat has nothing to look wider at, and a look costs score.
-  if (state.committed || card.pending || card.zoom >= EXPANSION_STEPS.length - 1) return;
-  card.zoom += 1;
-  paint(card);
-  updateStats();
-}
-
 function startDrag(card, event) {
   if (state.committed) return;
   const originX = event.clientX;
@@ -239,8 +245,8 @@ function startDrag(card, event) {
     document.removeEventListener("pointermove", move);
     document.removeEventListener("pointerup", end);
     document.removeEventListener("pointercancel", end);
-    // A press that never travelled is a tap, and a tap means "show me more".
-    if (!moved) zoomCard(card);
+    // A press that never travelled is a tap, and a tap works the crop dial.
+    if (!moved) cycleCard(card);
     renderTable();
   };
 
@@ -269,30 +275,56 @@ function renderTable() {
     seat.setAttribute("aria-label", card.pending
       ? `Manuscript in position ${i + 1} of ${state.cards.length}. Its page is still loading.`
       : `Manuscript in position ${i + 1} of ${state.cards.length}. Drag to reorder, or use the arrows below.`);
+    // The hover hint has to name what the next tap actually does. It used to
+    // promise "look closer" while every tap showed more of the page.
+    seat.dataset.hint = card.zoom >= LAST_STEP
+      ? "tap for the detail again"
+      : "tap to see more of the page";
     seat.append(card.canvas);
     seat.onpointerdown = (e) => startDrag(card, e);
     el.append(seat);
 
     const bar = document.createElement("div");
     bar.className = "card-bar";
+    // A flex column is as wide as its widest child, so a bar that outgrows the
+    // page would quietly stretch the card past its own photograph — and on the
+    // 116px tier that is the difference between two manuscripts fitting side
+    // by side and one. Cap it at the image and let it take a second row.
+    bar.style.maxWidth = `${card.canvas.width}px`;
 
-    const zoom = document.createElement("button");
-    zoom.type = "button";
-    zoom.className = "icon";
-    zoom.textContent = card.zoom >= EXPANSION_STEPS.length - 1 ? "◱" : "⌕";
-    zoom.title = "Look wider at this one. Costs score.";
-    zoom.setAttribute("aria-label", `Look wider at the manuscript in position ${i + 1}`);
-    zoom.disabled = state.committed || card.pending
-                    || card.zoom >= EXPANSION_STEPS.length - 1;
-    zoom.onpointerdown = (e) => e.stopPropagation();
-    zoom.onclick = (e) => {
-      e.stopPropagation();
-      zoomCard(card);
-      renderTable();
-    };
-    bar.append(zoom);
+    const crop = document.createElement("div");
+    crop.className = "card-group";
+    bar.append(crop);
+
+    // Words, not a magnifier. A magnifying glass says "closer" and this
+    // control does the opposite: it pulls back to show more of the leaf.
+    const dial = [
+      ["closer", card.zoom - 1, "Back to the tighter crop. Already paid for, so it is free.",
+       `Show less of the manuscript in position ${i + 1}`, card.zoom <= 0],
+      ["wider", card.zoom + 1, "Show more of the page. Costs score.",
+       `Show more of the manuscript in position ${i + 1}`, card.zoom >= LAST_STEP],
+    ];
+    for (const [text, step, title, label, spent] of dial) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "icon crop";
+      button.textContent = text;
+      button.title = title;
+      button.setAttribute("aria-label", label);
+      button.disabled = state.committed || card.pending || spent;
+      button.onpointerdown = (e) => e.stopPropagation();
+      button.onclick = (e) => {
+        e.stopPropagation();
+        showStep(card, step);
+        renderTable();
+      };
+      crop.append(button);
+    }
 
     if (!state.committed) {
+      const move = document.createElement("div");
+      move.className = "card-group";
+      bar.append(move);
       for (const [dir, glyph, label] of [[-1, "‹", "earlier"], [1, "›", "later"]]) {
         const nudge = document.createElement("button");
         nudge.type = "button";
@@ -302,7 +334,7 @@ function renderTable() {
         nudge.disabled = dir < 0 ? i === 0 : i === state.cards.length - 1;
         nudge.onpointerdown = (e) => e.stopPropagation();
         nudge.onclick = (e) => { e.stopPropagation(); moveCard(i, i + dir); };
-        bar.append(nudge);
+        move.append(nudge);
       }
     }
     el.append(bar);
@@ -350,7 +382,7 @@ const isDaily = () => state.round.id === "daily";
 function recordDaily(result) {
   const grid = shareGrid(state.cards.map((c) => ({
     correct: !c.wrong,
-    expansions: c.zoom,
+    expansions: c.seen,
   })));
   const earlier = dailyLog.read(state.day);
   const row = dailyLog.write(state.day, {
@@ -394,7 +426,7 @@ function seat(puzzle) {
   const canvas = document.createElement("canvas");
   canvas.width = size.w;
   canvas.height = size.h;
-  const card = { puzzle, image: null, focus: null, zoom: 0, canvas, pending: true };
+  const card = { puzzle, image: null, focus: null, zoom: 0, seen: 0, canvas, pending: true };
   paint(card);
   return card;
 }
@@ -519,7 +551,8 @@ async function addCards(count) {
   state.drag = null;
   const standing = isDaily() ? dailyLog.read(state.day) : null;
   $("prompt").textContent =
-    "Drag them into order, oldest on the left. Or nudge one with ‹ ›."
+    "Drag them into order, oldest on the left. Or nudge one with ‹ ›. "
+    + "Tap a page to see more of it — it costs score, and you can go back."
     + (standing ? ` You scored ${standing.score} earlier today.` : "");
   $("check").hidden = false;
   $("more").hidden = true;

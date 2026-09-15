@@ -52,7 +52,7 @@ def _page(row=None, detail=None, lookalikes=None):
 def test_the_page_names_its_source_and_tells_you_what_to_cite():
     page = _page()
     assert "medieval-mss" in page
-    assert "with the Library's permission" in page
+    assert "with the Library’s permission" in page
     assert "Cite the catalogue, not this page" in page
 
 
@@ -61,7 +61,7 @@ def test_the_derived_range_is_marked_as_ours_not_the_cataloguers():
     page = _page()
     assert "c. 1300–1325" in page, "the catalogued date must be shown"
     assert "1300–1325 beside it is" in page
-    assert "this site's own reading" in page
+    assert "this site’s own reading" in page
 
 
 def test_the_catalogue_prose_is_quoted_not_paraphrased():

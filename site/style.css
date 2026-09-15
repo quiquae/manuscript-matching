@@ -485,6 +485,7 @@ h1 a:hover, .site-title a:hover { color: var(--rubric); }
   color: var(--ink-soft); font-weight: 600; margin: 0 0 .4rem;
 }
 .ms-block p { margin: 0 0 .7rem; }
+.ms-block ul { margin-bottom: .9rem; }
 
 /* Folded because the catalogue's decoration note can run to eight thousand
    words. Everything is still on the page; it is just not in the way. */

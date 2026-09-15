@@ -7,7 +7,7 @@ shelfmark -- so the pages are both the honest way to credit the Bodleian and
 the only real answer to being findable.
 
 The rule for every page: show what the cataloguer wrote, say where it came
-from, and never present the game's arithmetic as the catalogue's judgement. The
+from, and never present the game's arithmetic as the catalogue’s judgement. The
 audience for a page about MS. Douce 1 includes people who will notice.
 """
 import html
@@ -27,13 +27,13 @@ def e(text):
     return html.escape(html.unescape(str(text or "")))
 
 
-# Above this many characters a block is folded. The catalogue's decoration
+# Above this many characters a block is folded. The catalogue’s decoration
 # notes run to eight thousand words on a heavily illuminated romance, and a
 # page nobody can scan is not more credible for holding everything at once.
 FOLD_OVER = 700
 
 
-# The fields that make a page worth indexing: the cataloguer's own words, as
+# The fields that make a page worth indexing: the cataloguer’s own words, as
 # opposed to the identifiers every page has.
 _PROSE = ("hand", "layout", "acquisition")
 _LISTED = ("decoration", "contents", "subjects")
@@ -111,9 +111,9 @@ def _masthead(up="", site_is_h1=False):
 
 FOOTER = """<footer>
   <p class="attribution">
-    Catalogue text from the Bodleian Libraries'
+    Catalogue text from the Bodleian Libraries’
     <a href="https://github.com/bodleian/medieval-mss">medieval-mss</a>, reused with the
-    Library's permission. Images © Bodleian Libraries, University of Oxford, served from
+    Library’s permission. Images © Bodleian Libraries, University of Oxford, served from
     Digital Bodleian under
     <a href="https://creativecommons.org/licenses/by-nc/4.0/">CC BY-NC 4.0</a>.
   </p>
@@ -238,7 +238,7 @@ def manuscript_page(row, detail, vocab, index_by_id, slug_of, lookalikes):
         f"from {place}." if place else "of unrecorded origin.",
         f"{row.get('date_display') or ''}.".strip("."),
         f"In {language}." if language else "",
-        "From the Bodleian Libraries' catalogue of Western medieval manuscripts.",
+        "From the Bodleian Libraries’ catalogue of Western medieval manuscripts.",
     ] if x).replace(" .", ".")
 
     ld = {
@@ -264,7 +264,7 @@ def manuscript_page(row, detail, vocab, index_by_id, slug_of, lookalikes):
     ld_block = ('<script type="application/ld+json">\n'
                 + json.dumps(ld, indent=2, ensure_ascii=False) + "\n</script>")
 
-    # Digital Bodleian's own attribution string already names the licence, so
+    # Digital Bodleian’s own attribution string already names the licence, so
     # appending a second CC line printed it twice.
     attribution = row.get("attribution") or "Bodleian Libraries, University of Oxford"
     credit = e(attribution)
@@ -323,13 +323,13 @@ def manuscript_page(row, detail, vocab, index_by_id, slug_of, lookalikes):
   <section class="ms-source">
     <h2>Where this comes from</h2>
     <p>The contents, hand, layout, decoration, provenance and acquisition above are
-    quoted from the Bodleian Libraries' catalogue of Western medieval manuscripts
+    quoted from the Bodleian Libraries’ catalogue of Western medieval manuscripts
     (<a href="https://github.com/bodleian/medieval-mss">bodleian/medieval-mss</a>),
-    reused with the Library's permission. The image is served from Digital Bodleian
+    reused with the Library’s permission. The image is served from Digital Bodleian
     under CC BY-NC 4.0.</p>
     <p><strong>Cite the catalogue, not this page.</strong> The date shown as catalogued
-    is the Bodleian's. The range {row['not_before']}–{row['not_after']} beside it is
-    this site's own reading of that date, flattened to two integers so manuscripts can
+    is the Bodleian’s. The range {row['not_before']}–{row['not_after']} beside it is
+    this site’s own reading of that date, flattened to two integers so manuscripts can
     be sorted and played against each other; it drops any <em>ante</em>, <em>post</em>
     or <em>circa</em> the cataloguer wrote. Where the two disagree, the catalogued date
     is the one that is right.</p>
@@ -369,7 +369,7 @@ def browse_page(index, slug_of, vocab):
 
     described = (f"All {len(index)} manuscripts the games draw from, by century, with "
                  "shelfmark, date, origin, support and language. From the Bodleian "
-                 "Libraries' catalogue.")
+                 "Libraries’ catalogue.")
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -383,7 +383,7 @@ def browse_page(index, slug_of, vocab):
   <p class="crumb"><a href="search.html">Search them instead →</a></p>
   <h1 class="headline">{len(index)} manuscripts</h1>
   <p class="ms-summary">Everything the games draw from, oldest first. Each one links to
-  its own page, and from there to the Bodleian's catalogue record.</p>
+  its own page, and from there to the Bodleian’s catalogue record.</p>
   {"".join(sections)}
 </main>
 

@@ -35,6 +35,7 @@ PLAY_FIELDS = (
     "shelfmark",      # drawn on the card after a commit
     "not_before",     # the whole ordering game
     "not_after",
+    "date_display",   # drawn on the card after a commit, so not reveal-only
     "material",       # a collection filter, and a Look Closer answer
     "region",         # a collection filter, a Look Closer answer, the Shelf
     "language",       # a Look Closer answer

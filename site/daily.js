@@ -25,6 +25,63 @@ export const DAILY_DIFFICULTY = "standard";
 
 export const dailySeed = (day) => `daily-${day}`;
 
+/** The day the daily began. That day is puzzle #1. */
+export const EPOCH = "2026-09-14";
+
+const asUTC = (day) => {
+  const [y, m, d] = String(day).split("-").map(Number);
+  return Date.UTC(y, m - 1, d);
+};
+const DAY_MS = 86400000;
+
+/**
+ * Which puzzle a date is, counting from the epoch.
+ *
+ * Computed from UTC midnights rather than local ones: a local-time subtraction
+ * is off by an hour across a daylight-saving boundary, and an hour is enough to
+ * make a floor() land on the wrong day. The dates themselves stay local — this
+ * arithmetic is on two calendar labels, not on two instants.
+ */
+export function puzzleNumber(day, epoch = EPOCH) {
+  const n = Math.round((asUTC(day) - asUTC(epoch)) / DAY_MS) + 1;
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Consecutive days played, counting back from today.
+ *
+ * Counts from yesterday when today has not been played yet, so opening the
+ * page does not appear to have reset a streak the player has not yet had the
+ * chance to keep.
+ */
+export function streak(days, today) {
+  const played = new Set(days);
+  let from = asUTC(today);
+  if (!played.has(today)) from -= DAY_MS;
+  let n = 0;
+  while (played.has(new Date(from).toISOString().slice(0, 10))) {
+    n += 1;
+    from -= DAY_MS;
+  }
+  return n;
+}
+
+/**
+ * The text a player pastes somewhere.
+ *
+ * Shaped like the game it is borrowing from: a number people can compare, a
+ * score out of a total, the spoiler-free grid, and a link. No dates,
+ * shelfmarks or digits inside the grid, so posting it cannot spoil the day.
+ */
+export function shareText(day, row, url, runOf = 0) {
+  const head = `Manuscript Matching #${puzzleNumber(day)} · ${row.right}/${row.total}`;
+  return [
+    runOf >= 2 ? `${head} · ${runOf} day streak` : head,
+    row.grid,
+    url,
+  ].join("\n");
+}
+
 /** 14 September 2026 -> "14 September 2026", for the heading. */
 export function dailyLabel(day) {
   const [y, m, d] = String(day).split("-").map(Number);
@@ -58,6 +115,9 @@ export function createDailyLog(storage) {
   };
 
   return {
+    /** Every day with a result, for the streak. */
+    days: () => Object.keys(load()),
+
     read(day) {
       const row = load()[day];
       return row && typeof row === "object" ? row : null;

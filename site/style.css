@@ -234,9 +234,22 @@ main section { margin-top: 2rem; }
 #check { background: var(--ink); color: var(--parchment); border-color: var(--ink); }
 #check:hover { background: var(--rubric); border-color: var(--rubric); }
 
+/* A seat whose page has not arrived. The ruled placeholder breathes, so the
+   wait reads as a deal in progress rather than as a broken image, and nothing
+   about the card moves or resizes when the real page lands. */
+.card.is-pending .card-seat { cursor: progress; }
+.card.is-pending .card-seat::after { content: none; }
+.card.is-pending .card-seat canvas { animation: dealing 1.7s ease-in-out infinite; }
+@keyframes dealing {
+  0%, 100% { opacity: .7; }
+  50%      { opacity: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .card, .card-seat::after { transition: none; }
   .card.is-dragging { transform: none; }
+  /* Motion is not the only cue: the placeholder still reads as unfinished. */
+  .card.is-pending .card-seat canvas { animation: none; opacity: .78; }
 }
 
 /* ---- observations ------------------------------------------------------- */

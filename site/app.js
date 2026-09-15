@@ -15,7 +15,8 @@ import { renderReveal } from "./reveal.js";
 import { createShelf } from "./shelf.js";
 import { createRecords, fetchDetails } from "./records.js";
 import {
-  createDailyLog, DAILY_COLLECTION, DAILY_DIFFICULTY, dailyLabel, dailySeed, todayISO,
+  createDailyLog, DAILY_COLLECTION, DAILY_DIFFICULTY, dailyLabel, dailySeed,
+  puzzleNumber, shareText, streak, todayISO,
 } from "./daily.js";
 
 const DATA = "data/";
@@ -63,19 +64,50 @@ const state = {
 
 /* ---------------------------------------------------------------- images */
 
+// Bodleian's image server timed out on roughly one request in five during
+// testing, and an <img> whose connection hangs fires neither load nor error.
+// Without a deadline one stalled request stalls the round for as long as the
+// player is willing to sit there, which is the failure this game is most
+// likely to show a stranger.
+const IMAGE_TIMEOUT_MS = 9000;
+
+// A bound on decoded images held in memory, not on what the game may show:
+// evicting one costs a refetch, never a manuscript. Least-recently-used, so a
+// card still on the table is not the one thrown away.
+const IMAGE_CACHE_MAX = 48;
+
 const imageCache = new Map();
 
-/** One request per manuscript, ever; every zoom after that is local. */
+/** One request per manuscript while it is cached; every zoom after that is local. */
 function loadImage(puzzle) {
-  if (imageCache.has(puzzle.id)) return imageCache.get(puzzle.id);
+  const hit = imageCache.get(puzzle.id);
+  if (hit) {
+    imageCache.delete(puzzle.id);         // re-insert so eviction is by age of use
+    imageCache.set(puzzle.id, hit);
+    return hit;
+  }
+
   const promise = new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(puzzle.id));
+    const deadline = setTimeout(() => {
+      img.src = "";                       // abandon the transfer
+      reject(new Error(`${puzzle.id}: no page after ${IMAGE_TIMEOUT_MS}ms`));
+    }, IMAGE_TIMEOUT_MS);
+    img.onload = () => { clearTimeout(deadline); resolve(img); };
+    img.onerror = () => { clearTimeout(deadline); reject(new Error(puzzle.id)); };
     img.src = `${puzzle.iiif}/full/${IIIF_WIDTH},/0/default.jpg`;
   });
+
+  // A rejection must never be cached. A manuscript that timed out once would
+  // otherwise be unavailable for the rest of the session, and on a server that
+  // fails one request in five that is a slice of the corpus going dark.
+  promise.catch(() => imageCache.delete(puzzle.id));
+
   imageCache.set(puzzle.id, promise);
+  while (imageCache.size > IMAGE_CACHE_MAX) {
+    imageCache.delete(imageCache.keys().next().value);
+  }
   return promise;
 }
 
@@ -90,12 +122,43 @@ function inspect(img) {
   return { focus: focusPoint(pixels, 8), parchment: parchmentFraction(pixels) };
 }
 
+/**
+ * A seat whose page has not arrived, drawn rather than left blank.
+ *
+ * Five empty rectangles read as a broken game; a ruled page with a rubricated
+ * initial reads as a deal in progress. It is the same mark as the favicon, and
+ * it is drawn at the card's own size so nothing reflows when the page lands.
+ */
+function paintFaceDown(canvas) {
+  const ctx = canvas.getContext("2d");
+  const { width: w, height: h } = canvas;
+  ctx.fillStyle = "#efe9df";
+  ctx.fillRect(0, 0, w, h);
+
+  const margin = Math.round(w * 0.14);
+  const initial = Math.round(w * 0.2);
+  ctx.fillStyle = "rgba(158, 43, 37, 0.22)";
+  ctx.fillRect(margin, margin, initial, initial);
+
+  ctx.fillStyle = "rgba(111, 97, 80, 0.15)";
+  const leading = Math.max(4, Math.round(h * 0.046));
+  const rule = Math.max(2, Math.round(leading * 0.32));
+  let y = margin;
+  for (let i = 0; y + rule < h - margin; i++) {
+    const beside = y < margin + initial;                 // lines beside the initial
+    const x = beside ? margin + initial + Math.round(margin * 0.5) : margin;
+    const full = w - x - margin;
+    ctx.fillRect(x, y, i % 7 === 6 ? Math.round(full * 0.55) : full, rule);
+    y += leading;
+  }
+}
+
 function paint(card) {
   const canvas = card.canvas;
+  if (!card.image) return paintFaceDown(canvas);
   const ctx = canvas.getContext("2d");
   ctx.fillStyle = "#efe9df";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  if (!card.image) return;
 
   const zoom = EXPANSION_STEPS[Math.min(card.zoom, EXPANSION_STEPS.length - 1)];
   const box = cropBox(card.image.width, card.image.height, card.focus.cx, card.focus.cy, zoom);
@@ -129,7 +192,8 @@ function moveCard(from, to) {
  */
 /** One more expansion step on a single card. Costs score, like every look. */
 function zoomCard(card) {
-  if (state.committed || card.zoom >= EXPANSION_STEPS.length - 1) return;
+  // A face-down seat has nothing to look wider at, and a look costs score.
+  if (state.committed || card.pending || card.zoom >= EXPANSION_STEPS.length - 1) return;
   card.zoom += 1;
   paint(card);
   updateStats();
@@ -187,6 +251,7 @@ function renderTable() {
     const el = document.createElement("div");
     el.className = "card";
     if (state.drag === card) el.classList.add("is-dragging");
+    if (card.pending) el.classList.add("is-pending");
     if (state.committed) {
       el.classList.add(card.wrong ? "is-wrong" : "is-right");
     }
@@ -194,8 +259,9 @@ function renderTable() {
     const seat = document.createElement("div");
     seat.className = "card-seat";
     seat.setAttribute("role", "img");
-    seat.setAttribute("aria-label",
-      `Manuscript in position ${i + 1} of ${state.cards.length}. Drag to reorder, or use the arrows below.`);
+    seat.setAttribute("aria-label", card.pending
+      ? `Manuscript in position ${i + 1} of ${state.cards.length}. Its page is still loading.`
+      : `Manuscript in position ${i + 1} of ${state.cards.length}. Drag to reorder, or use the arrows below.`);
     seat.append(card.canvas);
     seat.onpointerdown = (e) => startDrag(card, e);
     el.append(seat);
@@ -209,7 +275,8 @@ function renderTable() {
     zoom.textContent = card.zoom >= EXPANSION_STEPS.length - 1 ? "◱" : "⌕";
     zoom.title = "Look wider at this one. Costs score.";
     zoom.setAttribute("aria-label", `Look wider at the manuscript in position ${i + 1}`);
-    zoom.disabled = state.committed || card.zoom >= EXPANSION_STEPS.length - 1;
+    zoom.disabled = state.committed || card.pending
+                    || card.zoom >= EXPANSION_STEPS.length - 1;
     zoom.onpointerdown = (e) => e.stopPropagation();
     zoom.onclick = (e) => {
       e.stopPropagation();
@@ -255,6 +322,11 @@ function updateStats() {
   $("score").textContent = state.score;
   $("count").textContent = state.cards.length;
   $("best").textContent = state.best;
+  const run = streak(dailyLog.days(), state.day);
+  $("streak").textContent = run;
+  // A streak of one is a day played, not a run. Saying "1" invites a player to
+  // read it as a thing they could break tomorrow, which is the point.
+  $("streak-label").textContent = run === 1 ? "Day" : "Day run";
 }
 
 /* ------------------------------------------------------------------- daily */
@@ -290,12 +362,8 @@ function recordDaily(result) {
 async function copyResult() {
   const row = dailyLog.read(state.day);
   if (!row) return;
-  const text = [
-    `Manuscript Matching — ${dailyLabel(state.day)}`,
-    row.grid,
-    `${row.right}/${row.total} pairs · ${row.score} points`,
-    window.location.href.split(/[?#]/)[0],
-  ].join("\n");
+  const text = shareText(state.day, row, window.location.href.split(/[?#]/)[0],
+                         streak(dailyLog.days(), state.day));
   try {
     await navigator.clipboard.writeText(text);
     $("share").textContent = "Copied";
@@ -312,6 +380,71 @@ async function copyResult() {
 }
 
 /* ------------------------------------------------------------------ rounds */
+
+/** A seat at the table: a card with a canvas, face down until its page lands. */
+function seat(puzzle) {
+  const size = cardSize();
+  const canvas = document.createElement("canvas");
+  canvas.width = size.w;
+  canvas.height = size.h;
+  const card = { puzzle, image: null, focus: null, zoom: 0, canvas, pending: true };
+  paint(card);
+  return card;
+}
+
+// How many manuscripts one seat will try before giving up on itself.
+const DRAWS_PER_SEAT = 3;
+
+/** One manuscript legal against everything else currently on the table. */
+function redraw(card, pool, seed) {
+  const others = state.cards.filter((c) => c !== card).map((c) => c.puzzle);
+  const taken = new Set([...others.map((p) => p.id), card.puzzle.id]);
+  const set = buildSet(pool.filter((p) => !taken.has(p.id)), {
+    size: others.length + 1,
+    seed,
+    startGap: state.difficulty.startGap,
+    floor: state.difficulty.floor,
+    keep: others,
+  });
+  return set.length > others.length ? set[others.length] : null;
+}
+
+/**
+ * Turn one seat over, redrawing its manuscript in place if the page is dead,
+ * slow, or not a page at all.
+ *
+ * The seat stays put while this happens. A card vanishing from a row the
+ * player has started arranging is worse than a slot that takes a moment, so
+ * the substitution is invisible: the same position, a different manuscript.
+ *
+ * A daily can diverge here, because which seats need redrawing depends on
+ * whose network failed. The grid still compares -- it is one square per
+ * position, and a substituted manuscript is still a manuscript to place.
+ */
+async function turnOver(card, pool, seed) {
+  for (let draw = 0; draw < DRAWS_PER_SEAT; draw++) {
+    try {
+      const image = await loadImage(card.puzzle);
+      const { focus, parchment } = inspect(image);
+      // Conservation trays, carbonised rolls and rulers are catalogued as
+      // folios, so the only way to spot them is to look at the photograph.
+      if (isReadable(parchment, card.puzzle.material)) {
+        Object.assign(card, { image, focus, pending: false });
+        paint(card);
+        renderTable();
+        return true;
+      }
+    } catch {
+      /* dead or slow page: draw another manuscript into this seat */
+    }
+    const replacement = redraw(card, pool, `${seed}-redraw-${draw}`);
+    if (!replacement) break;
+    card.puzzle = replacement;
+  }
+  card.pending = false;
+  card.dead = true;
+  return false;
+}
 
 async function addCards(count) {
   const pool = state.puzzles.filter(state.collection.test);
@@ -336,46 +469,12 @@ async function addCards(count) {
     return;
   }
 
-  $("prompt").textContent = "Fetching pages…";
-
-  const take = async (puzzle) => {
-    try {
-      const image = await loadImage(puzzle);
-      const { focus, parchment } = inspect(image);
-      // Conservation trays, carbonised rolls and rulers are catalogued as
-      // folios, so the only way to spot them is to look at the photograph.
-      if (!isReadable(parchment, puzzle.material)) return null;
-      return { puzzle, image, focus, zoom: 0, canvas: null };
-    } catch {
-      return null;                    // a dead image must never stall a round
-    }
-  };
-
-  let loaded = await Promise.all(fresh.map(take));
-  const rejected = new Set(
-    fresh.filter((p, i) => !loaded[i]).map((p) => p.id));
-
-  // Draw replacements for anything unusable, once.
-  if (rejected.size) {
-    const spare = buildSet(pool.filter((p) => !rejected.has(p.id)), {
-      size: wanted,
-      seed: `retry-${seed}`,
-      startGap: state.difficulty.startGap,
-      floor: state.difficulty.floor,
-      keep: [...kept, ...loaded.filter(Boolean).map((c) => c.puzzle)],
-    });
-    const extra = spare.slice(kept.length + loaded.filter(Boolean).length);
-    loaded = [...loaded.filter(Boolean), ...(await Promise.all(extra.map(take)))];
-  }
-
-  for (const card of loaded.filter(Boolean)) {
-    card.canvas = document.createElement("canvas");
-    const size = cardSize();
-    card.canvas.width = size.w;
-    card.canvas.height = size.h;
-    paint(card);
-    state.cards.push(card);
-  }
+  // Seat every new card at once, face down, and let each turn itself over as
+  // its page arrives. The round is arrangeable immediately: before this, one
+  // Promise.all held the whole table hostage to the slowest fetch, on a server
+  // that fails one request in five.
+  const seats = fresh.map(seat);
+  state.cards.push(...seats);
 
   // Shuffle only the newly dealt cards into the row, so anything the player
   // has already arranged keeps its place. The daily seeds this too: the
@@ -402,6 +501,23 @@ async function addCards(count) {
   $("reveal").hidden = true;
   renderTable();
   updateStats();
+
+  await Promise.all(seats.map((card) => turnOver(card, pool, seed)));
+
+  // A seat that never found a usable page leaves the table. This is the only
+  // case where a card the player could already see disappears, and it takes
+  // DRAWS_PER_SEAT dead draws in a row to happen.
+  if (state.cards.some((c) => c.dead)) {
+    state.cards = state.cards.filter((c) => !c.dead);
+    renderTable();
+    updateStats();
+  }
+  if (!state.cards.length) {
+    $("prompt").textContent =
+      "Bodleian's image server is not answering. Try again in a moment.";
+    $("check").hidden = true;
+    $("again").hidden = false;
+  }
 }
 
 function check() {
@@ -547,7 +663,7 @@ function renderSetup() {
     for (const chip of el.children) chip.disabled = locked;
   }
   $("round-label").textContent = locked
-    ? `Daily · ${dailyLabel(state.day)}`
+    ? `Daily #${puzzleNumber(state.day)} · ${dailyLabel(state.day)}`
     : "Endless · your own slice";
 }
 

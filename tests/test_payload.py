@@ -64,6 +64,19 @@ def test_decorated_is_the_test_it_replaces():
     assert index_row({"id": "x"})["decorated"] is False      # field absent entirely
 
 
+def test_date_display_is_in_the_index_because_the_card_shows_it():
+    """Regression: the split put it in the details and every card lost its "c.".
+
+    `renderTable` writes `date_display || not_before-not_after` onto the card as
+    soon as the order is committed, which happens before the reveal's details
+    have been merged in. A missing `date_display` does not fail, it silently
+    degrades "c. 1470-1480" to "1470-1480" -- a circa quietly becoming a claim.
+    """
+    index, details = split([_record()])
+    assert index[0]["date_display"] == "c. 1300–1325"
+    assert "date_display" not in details["manuscript_1"]
+
+
 def test_hand_stays_in_the_details():
     """Look Closer grades against the prose, so it must not be reduced to a flag.
 

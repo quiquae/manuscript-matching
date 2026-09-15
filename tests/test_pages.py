@@ -52,8 +52,18 @@ def _page(row=None, detail=None, lookalikes=None):
 def test_the_page_names_its_source_and_tells_you_what_to_cite():
     page = _page()
     assert "medieval-mss" in page
-    assert "with the Library’s permission" in page
+    assert "Bodleian Libraries" in page, "the credit must never go missing"
     assert "Cite the catalogue, not this page" in page
+    # And no claim about a conversation with the Library: the pages credit the
+    # source and say what to cite, and assert nothing about permission.
+    #
+    # The phrase, not the bare word. Four records carry the word in the
+    # rightsholder's own required credit -- "© Jesus College, Oxford ... Please
+    # include the permission statement" -- which must appear verbatim, so a test
+    # on the word would fire on exactly the attribution it is meant to protect.
+    for claim in ["with the Library’s permission", "reused with the Library",
+                  "by permission of the Bodleian"]:
+        assert claim not in page, claim
 
 
 def test_the_derived_range_is_marked_as_ours_not_the_cataloguers():

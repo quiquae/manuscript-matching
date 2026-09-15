@@ -112,8 +112,8 @@ def _masthead(up="", site_is_h1=False):
 FOOTER = """<footer>
   <p class="attribution">
     Catalogue text from the Bodleian Libraries’
-    <a href="https://github.com/bodleian/medieval-mss">medieval-mss</a>, reused with the
-    Library’s permission. Images © Bodleian Libraries, University of Oxford, served from
+    <a href="https://github.com/bodleian/medieval-mss">medieval-mss</a>.
+    Images © Bodleian Libraries, University of Oxford, served from
     Digital Bodleian under
     <a href="https://creativecommons.org/licenses/by-nc/4.0/">CC BY-NC 4.0</a>.
   </p>
@@ -324,9 +324,8 @@ def manuscript_page(row, detail, vocab, index_by_id, slug_of, lookalikes):
     <h2>Where this comes from</h2>
     <p>The contents, hand, layout, decoration, provenance and acquisition above are
     quoted from the Bodleian Libraries’ catalogue of Western medieval manuscripts
-    (<a href="https://github.com/bodleian/medieval-mss">bodleian/medieval-mss</a>),
-    reused with the Library’s permission. The image is served from Digital Bodleian
-    under CC BY-NC 4.0.</p>
+    (<a href="https://github.com/bodleian/medieval-mss">bodleian/medieval-mss</a>).
+    The image is served from Digital Bodleian under CC BY-NC 4.0.</p>
     <p><strong>Cite the catalogue, not this page.</strong> The date shown as catalogued
     is the Bodleian’s. The range {row['not_before']}–{row['not_after']} beside it is
     this site’s own reading of that date, flattened to two integers so manuscripts can

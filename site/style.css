@@ -51,6 +51,15 @@ button, .mode {
 button:hover:not(:disabled), .mode:hover { border-color: var(--ink-soft); }
 button:focus-visible, .mode:focus-visible { outline: 2px solid var(--rubric); outline-offset: 2px; }
 button:disabled { opacity: .45; cursor: default; }
+
+/* Press feedback. There was hover and there was focus, but nothing happened on
+   the way down, which is the half of a click the finger notices. */
+button, .mode { transition: scale .1s ease, border-color .12s ease; }
+button:active:not(:disabled), .mode:active { scale: .96; }
+@media (prefers-reduced-motion: reduce) {
+  button, .mode { transition: border-color .12s ease; }
+  button:active:not(:disabled), .mode:active { scale: 1; }
+}
 .mode.is-active,
 .mode[aria-pressed="true"] { background: var(--ink); color: var(--parchment); border-color: var(--ink); }
 
@@ -137,6 +146,17 @@ footer { max-width: 64rem; margin: 3.5rem auto 0; border-top: 1px solid var(--ru
 .choices { display: flex; flex-wrap: wrap; gap: .35rem; }
 .chip { padding: .3rem .7rem; font-size: .85rem; text-transform: capitalize; }
 .chip.is-chosen { background: var(--rubric); color: var(--parchment); border-color: var(--rubric); }
+
+/* A chip the daily has fixed is not unavailable, it is decided. The generic
+   `button:disabled { opacity: .45 }` made the chosen chip the faintest thing on
+   the screen -- and the chosen chip is the one piece of information the player
+   needs, since they did not pick it. So the choice stays at full strength and
+   only the roads not taken recede. */
+.chip:disabled { opacity: 1; }
+.chip:disabled:not(.is-chosen) { opacity: .42; }
+.chip.is-chosen:disabled {
+  background: var(--rubric); color: var(--parchment); border-color: var(--rubric);
+}
 #commit { background: var(--ink); color: var(--parchment); border-color: var(--ink); }
 
 /* ---- The Shelf ---------------------------------------------------------- */
@@ -237,7 +257,10 @@ main section { margin-top: 2rem; }
 /* A seat whose page has not arrived. The ruled placeholder breathes, so the
    wait reads as a deal in progress rather than as a broken image, and nothing
    about the card moves or resizes when the real page lands. */
-.card.is-pending .card-seat { cursor: progress; }
+/* `progress` would say "you cannot touch this", and the player can: a
+   face-down card drags like any other. Only looking closer is unavailable,
+   and that button is disabled to say so. */
+.card.is-pending .card-seat { cursor: grab; }
 .card.is-pending .card-seat::after { content: none; }
 .card.is-pending .card-seat canvas { animation: dealing 1.7s ease-in-out infinite; }
 @keyframes dealing {

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  COLLECTIONS, DIFFICULTIES, buildSet, gapFor, isLegal, seededRandom,
+  ambiguous, COLLECTIONS, DIFFICULTIES, buildSet, gapFor, isLegal, seededRandom,
 } from "../deck.js";
 
 const pool = (n = 200, step = 15) =>
@@ -137,4 +137,64 @@ test("no dealt set ever contains an overlapping pair, over 200 deals", () => {
     }
   }
   assert.equal(deals, 200, "the loop did not run");
+});
+
+/* ----------------------------------------------- repairing a substituted board */
+
+const card = (id, nb, na) => ({ id, not_before: nb, not_after: na });
+
+test("a board with no overlaps loses nothing", () => {
+  assert.deepEqual(ambiguous([card("a", 1000, 1010), card("b", 1100, 1110)]), []);
+});
+
+test("an overlapping pair loses the later card, not the earlier", () => {
+  const dropped = ambiguous([card("a", 1000, 1050), card("b", 1040, 1090)]);
+  assert.deepEqual(dropped.map((c) => c.id), ["b"]);
+});
+
+test("touching ranges are ambiguous too", () => {
+  // not_before === not_after means the two could be the same year: no order.
+  assert.deepEqual(ambiguous([card("a", 1000, 1050), card("b", 1050, 1090)]).map((c) => c.id),
+                   ["b"]);
+});
+
+test("what survives is always answerable", () => {
+  const board = [
+    card("a", 1000, 1100), card("b", 1050, 1060), card("c", 1090, 1200),
+    card("d", 1300, 1310), card("e", 1305, 1400),
+  ];
+  const dropped = new Set(ambiguous(board).map((c) => c.id));
+  const kept = board.filter((c) => !dropped.has(c.id))
+                    .sort((a, b) => a.not_before - b.not_before);
+  for (let i = 1; i < kept.length; i++) {
+    assert.ok(kept[i].not_before > kept[i - 1].not_after,
+              `${kept[i].id} still overlaps ${kept[i - 1].id}`);
+  }
+  assert.ok(kept.length >= 2, "the repair emptied the board");
+});
+
+test("order of the input does not change what survives", () => {
+  const board = [card("c", 1090, 1200), card("a", 1000, 1100), card("b", 1050, 1060)];
+  const a = ambiguous(board).map((c) => c.id).sort();
+  const b = ambiguous([...board].reverse()).map((c) => c.id).sort();
+  assert.deepEqual(a, b);
+});
+
+test("a one-card and an empty board are left alone", () => {
+  assert.deepEqual(ambiguous([]), []);
+  assert.deepEqual(ambiguous([card("a", 1000, 1010)]), []);
+});
+
+/**
+ * The repair must agree with the rule that made the set in the first place:
+ * anything buildSet deals is already answerable, so there is nothing to prune.
+ */
+test("buildSet's own output never needs repairing", () => {
+  for (let i = 0; i < 60; i++) {
+    const d = DIFFICULTIES[i % DIFFICULTIES.length];
+    const set = buildSet(pool(), {
+      size: d.size, seed: `agree-${i}`, startGap: d.startGap, floor: d.floor,
+    });
+    assert.deepEqual(ambiguous(set), [], `seed agree-${i} dealt an ambiguous set`);
+  }
 });

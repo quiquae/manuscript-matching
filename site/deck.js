@@ -45,6 +45,34 @@ export function isLegal(board, card, minGap) {
   return true;
 }
 
+/**
+ * The cards that have to go for the rest to be in one defensible order.
+ *
+ * `buildSet` guarantees this at deal time, but a card can be substituted after
+ * the deal -- a page that will not load is replaced in its seat -- and two
+ * substitutions in one round can leave a pair whose ranges overlap. Both orders
+ * of that pair would then be defensible and the player would be marked wrong
+ * for being right.
+ *
+ * Keeps the earlier card of a clashing pair and returns the later, so the
+ * result is the shortest list whose removal leaves the board answerable. A
+ * short set beats an unanswerable one, which is the same trade `buildSet`
+ * makes when it runs out of legal cards.
+ */
+export function ambiguous(cards) {
+  const ordered = [...cards].sort((a, b) => a.not_before - b.not_before);
+  const drop = [];
+  let last = null;
+  for (const card of ordered) {
+    if (last && card.not_before <= last.not_after) {
+      drop.push(card);
+      continue;
+    }
+    last = card;
+  }
+  return drop;
+}
+
 /** The slices a player can choose to play with. */
 export const COLLECTIONS = [
   { id: "all", label: "Everything", blurb: "The whole corpus, papyrus to print.",

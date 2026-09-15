@@ -6,7 +6,7 @@
  * before you commit: you have the image, and how much of it you choose to look
  * at costs you score.
  */
-import { COLLECTIONS, DIFFICULTIES, buildSet, seededRandom } from "./deck.js";
+import { ambiguous, COLLECTIONS, DIFFICULTIES, buildSet, seededRandom } from "./deck.js";
 import { cropBox, EXPANSION_STEPS, focusPoint } from "./crop.js";
 import { isReadable, parchmentFraction } from "./readable.js";
 import { orderResult } from "./order.js";
@@ -446,6 +446,25 @@ async function turnOver(card, pool, seed) {
   return false;
 }
 
+/**
+ * Drop any card whose dates overlap another's, after the deal has settled.
+ *
+ * `redraw` checks a replacement against the other seats as they stand, but a
+ * seat that has not turned over yet may redraw after it -- so two substitutions
+ * in one deal can leave a pair whose ranges overlap. Both orders of that pair
+ * would then be defensible and the player would be marked wrong for being
+ * right, which is the one outcome the disjointness rule exists to prevent.
+ *
+ * Dropping is the honest repair, and it is the rule buildSet already follows: a
+ * short set beats an unanswerable one.
+ */
+function pruneAmbiguous() {
+  const clashing = new Set(ambiguous(state.cards.map((c) => c.puzzle)).map((p) => p.id));
+  if (!clashing.size) return false;
+  state.cards = state.cards.filter((c) => !clashing.has(c.puzzle.id));
+  return true;
+}
+
 async function addCards(count) {
   const pool = state.puzzles.filter(state.collection.test);
   const kept = state.cards.map((c) => c.puzzle);
@@ -507,8 +526,9 @@ async function addCards(count) {
   // A seat that never found a usable page leaves the table. This is the only
   // case where a card the player could already see disappears, and it takes
   // DRAWS_PER_SEAT dead draws in a row to happen.
-  if (state.cards.some((c) => c.dead)) {
-    state.cards = state.cards.filter((c) => !c.dead);
+  const lost = state.cards.some((c) => c.dead);
+  if (lost) state.cards = state.cards.filter((c) => !c.dead);
+  if (pruneAmbiguous() || lost) {
     renderTable();
     updateStats();
   }

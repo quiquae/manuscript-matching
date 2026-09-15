@@ -7,6 +7,7 @@ and no cache -- which is what lets CI regenerate the pages on a clean checkout.
 Run it after `python -m build`, or on its own after editing a template.
 """
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -19,6 +20,26 @@ DATA = SITE / "data"
 
 # The pages that are written by hand and live at the top level.
 HAND_WRITTEN = ["", "look.html", "shelf.html", "search.html", "dating.html"]
+
+
+def _hide_from_icloud(path: Path) -> None:
+    """Ask iCloud Drive not to sync the generated pages.
+
+    This repository lives under ~/Documents, which on this machine is iCloud
+    Drive, and 2,201 small files rewritten on every run is exactly the load
+    that has cost us before: `fileproviderd` saturating a core, and -- worse --
+    iCloud resolving its own races by leaving "app 2.py" conflict copies beside
+    source files in this tree.
+
+    The directory is gitignored derived output that CI regenerates, so there is
+    nothing here worth syncing. Best-effort and silent: the attribute is a
+    macOS one, and failing to set it costs performance, never correctness.
+    """
+    try:
+        subprocess.run(["xattr", "-w", "com.apple.fileprovider.ignore#P", "1", str(path)],
+                       check=False, capture_output=True)
+    except (OSError, FileNotFoundError):
+        pass
 
 
 def main() -> None:
@@ -35,6 +56,7 @@ def main() -> None:
 
     out = SITE / "ms"
     out.mkdir(exist_ok=True)
+    _hide_from_icloud(out)
     for stale in out.glob("*.html"):
         stale.unlink()               # a renamed shelfmark must not leave a ghost
 

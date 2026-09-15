@@ -105,10 +105,4 @@ Enterprise Cloud.
 Manuscript images are served from Digital Bodleian under
 [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) and are credited in place.
 
-Catalogue text comes from `bodleian/medieval-mss`. **That repository still carries no LICENSE
-file**, so this site does not rest on one: reuse was confirmed with the Bodleian directly in
-September 2026, and that permission is the basis. Anyone forking this needs their own — the
-absence of a LICENSE upstream has not changed.
 
-This repository has no LICENSE of its own yet, so its code and prose are all rights reserved by
-default. That is a decision deferred, not a position.

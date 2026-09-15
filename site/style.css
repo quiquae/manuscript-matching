@@ -345,8 +345,14 @@ main section { margin-top: 2rem; }
 .chip { text-transform: none; }
 
 /* ---- masthead ----------------------------------------------------------- */
-h1 a { color: inherit; text-decoration: none; }
-h1 a:hover { color: var(--rubric); }
+h1 a, .site-title a { color: inherit; text-decoration: none; }
+h1 a:hover, .site-title a:hover { color: var(--rubric); }
+/* On a manuscript page the h1 is the shelfmark, so the site name is a <p> that
+   still has to look like the masthead it is. */
+.site-title {
+  margin: 0; font-size: clamp(1.75rem, 5vw, 2.5rem); font-weight: 600;
+  letter-spacing: .01em; line-height: 1.1;
+}
 .game-name {
   margin: .15rem 0 .1rem; font-size: .74rem; font-weight: 600;
   text-transform: uppercase; letter-spacing: .16em; color: var(--rubric);
@@ -381,3 +387,135 @@ h1 a:hover { color: var(--rubric); }
 .looking-glass #view { cursor: grab; touch-action: none; }
 .looking-glass #view.is-panning { cursor: grabbing; }
 .looking-glass #view:focus-visible { outline: 2px solid var(--rubric); outline-offset: 2px; }
+
+/* ---- search -------------------------------------------------------------- */
+.find-field { display: block; max-width: 34rem; margin: 0 0 1.5rem; }
+#q {
+  width: 100%; font: inherit; font-size: 1.15rem; padding: .6rem .75rem;
+  background: var(--card); color: var(--ink);
+  border: 1px solid var(--rule); border-radius: 2px;
+}
+#q:focus-visible { outline: 2px solid var(--rubric); outline-offset: 1px; }
+#q::placeholder { color: var(--ink-soft); opacity: .75; font-style: italic; }
+
+.find-facets {
+  display: flex; gap: 2rem; flex-wrap: wrap;
+  padding-bottom: 1.25rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--rule);
+}
+.chip-count {
+  font-size: .72rem; font-variant-numeric: tabular-nums; opacity: .6;
+}
+.chip.is-chosen .chip-count { opacity: .8; }
+
+.find-status {
+  display: flex; align-items: baseline; gap: 1rem; flex-wrap: wrap;
+  margin: 0 0 1.25rem;
+}
+.find-status strong { font-size: 1.15rem; font-variant-numeric: tabular-nums; font-weight: 600; }
+.find-surprise { font-size: .85rem; font-style: italic; }
+
+.find-results {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: 1.25rem;
+}
+.find-card {
+  display: flex; flex-direction: column; gap: .25rem;
+  text-decoration: none; color: inherit;
+}
+.find-card img {
+  width: 100%; height: 12rem; object-fit: cover; display: block;
+  border: 1px solid var(--rule); background: #efe9df;
+  transition: border-color .15s ease, transform .15s ease;
+}
+.find-card:hover img { border-color: var(--rubric); transform: translateY(-2px); }
+.find-card:focus-visible img { outline: 2px solid var(--rubric); outline-offset: 2px; }
+.find-shelf { font-size: .82rem; }
+.find-when { font-size: .7rem; color: var(--ink-soft); }
+
+/* A page the image server did not send. The same ruled placeholder the game
+   draws on a face-down card, so a missing photograph reads as a page we have
+   not got rather than as a broken site. */
+.find-card.is-pageless img { visibility: hidden; }
+.find-card.is-pageless {
+  position: relative;
+}
+.find-card.is-pageless img {
+  background:
+    linear-gradient(to bottom, transparent 0 1.1rem,
+      var(--rule) 1.1rem 1.25rem, transparent 1.25rem 2.2rem) 0 0 / 100% 2.2rem repeat-y,
+    #efe9df;
+  visibility: visible;
+  opacity: .55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .find-card img { transition: none; }
+  .find-card:hover img { transform: none; }
+}
+
+/* ---- one manuscript ------------------------------------------------------ */
+.ms { max-width: 46rem; }
+.crumb { margin: 0 0 1rem; font-size: .8rem; }
+.ms-shelfmark { margin: 0 0 .15rem; font-size: clamp(1.5rem, 4vw, 2.1rem); font-weight: 600; }
+.ms-summary { margin: 0 0 1.5rem; color: var(--ink-soft); font-style: italic; }
+
+.ms-figure { margin: 0 0 1.75rem; }
+.ms-figure img {
+  max-width: 100%; height: auto; display: block;
+  border: 1px solid var(--rule); background: #efe9df; box-shadow: var(--shadow);
+}
+.ms-figure figcaption {
+  font-size: .7rem; color: var(--ink-soft); margin-top: .45rem; max-width: 40rem;
+}
+
+.ms-facts {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: .9rem 1.5rem; margin: 0 0 2rem;
+  padding: 1rem 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule);
+}
+.ms-facts div { margin: 0; }
+.ms-facts dt {
+  font-size: .66rem; text-transform: uppercase; letter-spacing: .09em;
+  color: var(--ink-soft); font-weight: 600;
+}
+.ms-facts dd { margin: .15rem 0 0; }
+
+.ms-block { margin: 0 0 1.75rem; }
+.ms-block h2, .ms-fold summary {
+  font-size: .68rem; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--ink-soft); font-weight: 600; margin: 0 0 .4rem;
+}
+.ms-block p { margin: 0 0 .7rem; }
+
+/* Folded because the catalogue's decoration note can run to eight thousand
+   words. Everything is still on the page; it is just not in the way. */
+.ms-fold summary { cursor: pointer; color: var(--rubric); }
+.ms-fold summary:hover { text-decoration: underline; }
+.ms-fold summary:focus-visible { outline: 2px solid var(--rubric); outline-offset: 2px; }
+.ms-fold[open] summary { margin-bottom: .7rem; }
+
+.ms-owners { margin: 0; padding-left: 1.1rem; }
+.ms-owners li { margin-bottom: .2rem; }
+.ms-role { font-size: .75rem; color: var(--ink-soft); }
+.ms-note { font-size: .74rem; color: var(--ink-soft); margin: .5rem 0 0; }
+.ms-note code { font-size: .95em; }
+
+.ms-source {
+  margin: 2.5rem 0 1.5rem; padding: 1.25rem;
+  border-top: 3px double var(--rule); background: var(--card);
+}
+.ms-source h2 {
+  font-size: .68rem; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--ink-soft); font-weight: 600; margin: 0 0 .5rem;
+}
+.ms-source p { margin: 0 0 .7rem; font-size: .88rem; }
+.ms-source p:last-child { margin-bottom: 0; }
+.ms-play { margin: 2rem 0 0; }
+
+/* ---- every manuscript, by century --------------------------------------- */
+.browse-list { columns: 18rem; column-gap: 2rem; margin: 0; padding: 0; list-style: none; }
+.browse-list li { margin-bottom: .45rem; break-inside: avoid; }
+.browse-when { display: block; font-size: .7rem; color: var(--ink-soft); }
+.browse-count {
+  font-size: .7rem; color: var(--ink-soft); font-variant-numeric: tabular-nums;
+  letter-spacing: 0; text-transform: none;
+}

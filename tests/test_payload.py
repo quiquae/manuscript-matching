@@ -40,6 +40,11 @@ def test_split_loses_nothing():
     assert set(index[0]) | set(details[rec["id"]]) >= set(rec)
 
 
+def test_the_index_carries_a_slug_to_link_by():
+    index, _ = split([_record()])
+    assert index[0]["slug"] == "ms-douce-1"
+
+
 def test_index_and_details_do_not_overlap():
     """A field in both files is a field that can drift between them."""
     rec = _record()
@@ -50,7 +55,7 @@ def test_index_and_details_do_not_overlap():
 def test_the_index_holds_exactly_the_play_fields_and_one_boolean():
     """The alarm for a prose field creeping back into the first load."""
     index, _ = split([_record()])
-    assert set(index[0]) == set(PLAY_FIELDS) | {"decorated"}
+    assert set(index[0]) == set(PLAY_FIELDS) | {"decorated", "slug"}
 
 
 def test_decorated_is_the_test_it_replaces():
@@ -117,7 +122,8 @@ def test_the_built_index_carries_no_prose():
     rows = json.loads((BUILT / "puzzles.json").read_text())
     assert rows, "puzzles.json is empty"
     for field in set().union(*(set(r) for r in rows)):
-        assert field in set(PLAY_FIELDS) | {"decorated"}, f"{field} is in the first load"
+        assert field in set(PLAY_FIELDS) | {"decorated", "slug"}, \
+            f"{field} is in the first load"
 
 
 @built

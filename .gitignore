@@ -9,3 +9,9 @@ node_modules/
 
 # Build outputs live in site/data/ and ARE committed -- they are the artifact
 # that makes the site reproducible without re-running a 7-minute manifest crawl.
+
+# The per-manuscript pages: 2,201 files and 24 MB, regenerated in seconds from
+# the committed JSON by scripts/make_pages.py, and by CI before it deploys.
+# site/browse.html and site/sitemap.xml ARE committed, because they are small
+# and the test suite checks them for staleness.
+site/ms/

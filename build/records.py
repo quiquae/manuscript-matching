@@ -38,8 +38,30 @@ class Record:
     contents: list[str] = field(default_factory=list)
 
 
+_DIMENSIONS = f"{{{NS['t']}}}dimensions"
+
+
+def _flatten(el) -> str:
+    """Element text, with a multiplication sign inside <dimensions>.
+
+    TEI keeps a height and a width as sibling elements, so a plain itertext()
+    runs them together: a ruled space of 270 by 175 mm comes out as "270 175".
+    On a page a palaeographer may cite, that is not a typo, it is a different
+    measurement. Non-mutating, because `_text` is called twice on the same
+    element in places and a mutation would double the separator.
+    """
+    out = [el.text or ""]
+    kids = list(el)
+    for i, child in enumerate(kids):
+        out.append(_flatten(child))
+        if el.tag == _DIMENSIONS and i < len(kids) - 1:
+            out.append(" × ")
+        out.append(child.tail or "")
+    return "".join(out)
+
+
 def _text(el) -> str:
-    return " ".join("".join(el.itertext()).split()) if el is not None else ""
+    return " ".join(_flatten(el).split()) if el is not None else ""
 
 
 def _year(value: str | None) -> int | None:

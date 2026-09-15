@@ -16,6 +16,7 @@ const PAGES = [
   ["../index.html", "../app.js"],
   ["../look.html", "../look.js"],
   ["../shelf.html", "../shelf-app.js"],
+  ["../search.html", "../search.js"],
 ];
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), "utf8");

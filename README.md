@@ -11,9 +11,30 @@ Libraries' open TEI catalogue ([bodleian/medieval-mss](https://github.com/bodlei
   spend five looks, then commit to a reading: when, where, on what, in which language — and name
   the hand, graded against the cataloguer's own description of it.
 - **The Shelf** — everything you have met, by century and region, with the gaps named.
+- **Search** — the whole corpus in the browser: 2,201 manuscripts by shelfmark, date, origin,
+  support or language, each with its own page. No server and no index; the 110 KB play index is
+  already in memory, so a query is a filter over an array.
 
 Every round ends with a link back to the Bodleian's own catalogue record. That is the point:
 the game is a front door to 2,201 manuscripts, not a destination.
+
+## The manuscript pages
+
+`scripts/make_pages.py` writes one page per manuscript, plus `browse.html` and the sitemap.
+Each page shows the catalogue's own words — contents, hand, layout, decoration, provenance,
+acquisition — with the image, the shelfmark, links to the Bodleian record and Digital Bodleian,
+and a note saying what came from where. Roles are MARC relator codes expanded against
+id.loc.gov, and only cited as such when a code was actually found there. Language names are the
+Bodleian's own `<textLang>` wording rather than any external list, because `xno` is
+"Anglo-Norman" in the record the page is about and id.loc.gov does not hold the code at all.
+
+The one claim on a page that is not the Bodleian's is labelled as ours: the integer date range
+the game sorts by, which drops any *ante*, *post* or *circa* the cataloguer wrote. Each page says
+so, and says to cite the catalogue.
+
+`site/ms/` is gitignored — 2,201 files and 24 MB of derived HTML, written by CI before it
+deploys. `site/browse.html` and `site/sitemap.xml` are committed, and a test fails if they go
+stale.
 
 ## How it works
 
@@ -41,6 +62,7 @@ python -m pytest tests/ -q                  # build-step tests
 
 python scripts/warm_manifests.py    # once: ~7 min, caches 2,201 IIIF manifests
 python -m build                     # writes site/data/*.json
+python3 scripts/make_pages.py       # writes site/ms/, browse.html, sitemap.xml
 ```
 
 Then serve the site and open http://localhost:8020/:
@@ -59,6 +81,7 @@ then keep stale ES modules and an edit appears not to have happened.
     scripts/      manifest warm-up, the link-preview card, and the no-cache dev server
     site/         the static site; this directory is what gets deployed
     site/data/    committed build output; puzzles.json is the play index, details.json the prose
+    site/ms/      one page per manuscript; gitignored, written by make_pages.py
     site/og.png   the link-preview card; `python3 scripts/make_og.py` after a palette change
     data/cache/   downloaded corpus and manifest cache (gitignored)
     docs/specs/   the design

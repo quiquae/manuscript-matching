@@ -65,9 +65,26 @@ test("the assets the metadata points at exist", () => {
   }
 });
 
-test("the sitemap lists every indexable page, and nothing else", () => {
-  const listed = [...read("sitemap.xml").matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
-  assert.deepEqual([...listed].sort(), indexable.map(urlFor).sort());
+test("the sitemap lists every page here, plus the manuscript pages", () => {
+  const listed = new Set(
+    [...read("sitemap.xml").matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]));
+
+  for (const file of indexable) {
+    assert.ok(listed.has(urlFor(file)), `${file} is missing from the sitemap`);
+  }
+
+  // The 2,201 per-manuscript pages are generated, not committed, so what they
+  // contain is checked by tests/test_pages.py against a fresh generation. Here
+  // the only question is whether the sitemap still points at them at all.
+  const perManuscript = [...listed].filter((u) => u.includes("/ms/"));
+  assert.ok(perManuscript.length > 2000,
+            `only ${perManuscript.length} manuscript pages in the sitemap`);
+
+  // And nothing is listed that is neither one of those nor a page in here --
+  // a sitemap entry for a page that does not exist is a crawl error per URL.
+  const known = new Set(indexable.map(urlFor));
+  const stray = [...listed].filter((u) => !known.has(u) && !u.includes("/ms/"));
+  assert.deepEqual(stray, [], "the sitemap points at something unaccounted for");
 });
 
 test("robots points at the sitemap on the same host", () => {

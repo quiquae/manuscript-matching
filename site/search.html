@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>Search 2,201 Bodleian manuscripts — Manuscript Matching</title>
+<meta name="description" content="Search 2,201 medieval manuscripts from the Bodleian Libraries by shelfmark, date, origin, support or language. Each links to its own page.">
+<link rel="canonical" href="https://quiquae.github.io/manuscript-matching/search.html">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#f4efe4">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Manuscript Matching">
+<meta property="og:title" content="Search 2,201 Bodleian manuscripts — Manuscript Matching">
+<meta property="og:description" content="Search 2,201 medieval manuscripts from the Bodleian Libraries by shelfmark, date, origin, support or language. Each links to its own page.">
+<meta property="og:url" content="https://quiquae.github.io/manuscript-matching/search.html">
+<meta property="og:image" content="https://quiquae.github.io/manuscript-matching/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Three manuscript pages fanned out, each with a red painted initial.">
+<meta name="twitter:card" content="summary_large_image">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#results">Skip to the results</a>
+
+<header>
+  <p class="site-title"><a href="index.html">Manuscript Matching</a></p>
+  <p class="game-name">Bodleian manuscripts</p>
+  <nav aria-label="Games">
+    <a class="mode" href="index.html">Arrange</a>
+    <a class="mode" href="look.html">Look Closer</a>
+    <a class="mode" href="shelf.html">The Shelf</a>
+    <a class="mode is-active" href="search.html" aria-current="page">Search</a>
+  </nav>
+</header>
+
+<main>
+  <h1 class="headline">Search the corpus</h1>
+
+  <label class="find-field" for="q">
+    <span class="label">Shelfmark, date, place, language</span>
+    <input id="q" type="search" autocomplete="off" spellcheck="false"
+           placeholder="Douce · 1400 · Greek · Thérouanne">
+  </label>
+
+  <div class="find-facets">
+    <div class="setup-group"><h2 class="label">Century</h2><div id="f-century" class="choices"></div></div>
+    <div class="setup-group"><h2 class="label">Made in</h2><div id="f-region" class="choices"></div></div>
+    <div class="setup-group"><h2 class="label">Support</h2><div id="f-material" class="choices"></div></div>
+    <div class="setup-group"><h2 class="label">Language</h2><div id="f-language" class="choices"></div></div>
+  </div>
+
+  <p class="find-status">
+    <strong id="count" role="status">Loading the corpus…</strong>
+    <a id="surprise" class="find-surprise" href="#">Surprise me →</a>
+  </p>
+
+  <div id="results" class="find-results"></div>
+  <p class="actions"><button id="more" hidden>Show more</button></p>
+
+  <p class="ms-note">
+    Catalogue text from the Bodleian Libraries' medieval-mss, reused with the Library's
+    permission. Dates are the cataloguer's. Search runs in this page: nothing you type
+    leaves your browser.
+  </p>
+</main>
+
+<footer>
+  <p class="attribution">
+    Catalogue text from the Bodleian Libraries'
+    <a href="https://github.com/bodleian/medieval-mss">medieval-mss</a>, reused with the
+    Library's permission. Images © Bodleian Libraries, University of Oxford, served from
+    Digital Bodleian under
+    <a href="https://creativecommons.org/licenses/by-nc/4.0/">CC BY-NC 4.0</a>.
+  </p>
+</footer>
+
+<script type="module" src="search.js"></script>
+</body>
+</html>

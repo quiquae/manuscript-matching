@@ -65,6 +65,17 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # site/ms/ is gitignored: 2,201 files and 24 MB of derived HTML. It is
+      # written here, from the committed JSON, so the deployed site is complete
+      # without the repository carrying it.
+      - name: Write the per-manuscript pages
+        run: |
+          python3 scripts/make_pages.py
+          test -f site/ms/ms-douce-1.html || { echo "no manuscript pages"; exit 1; }
+          echo "$(ls site/ms | wc -l) pages"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

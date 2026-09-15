@@ -28,6 +28,7 @@ and Look Closer loads them at boot. It is the deep game, and it has to grade
 against the prose in any case. Arrange, which is the page people arrive on, keeps
 the small index and fetches the rest while they play.
 """
+from build.vocab import slugs
 
 # Every field the browser needs before a round is committed.
 PLAY_FIELDS = (
@@ -45,10 +46,11 @@ PLAY_FIELDS = (
 )
 
 
-def index_row(record: dict) -> dict:
-    """The play-time view of one record."""
+def index_row(record: dict, slug: str = "") -> dict:
+    """The play-time view of one record, plus how to link to its own page."""
     row = {k: record[k] for k in PLAY_FIELDS if k in record}
     row["decorated"] = bool(record.get("decoration"))
+    row["slug"] = slug or record["id"]
     return row
 
 
@@ -58,5 +60,12 @@ def detail_row(record: dict) -> dict:
 
 
 def split(records: list[dict]) -> tuple[list[dict], dict[str, dict]]:
-    """(index, details-by-id). Together they hold every field, and no more."""
-    return [index_row(r) for r in records], {r["id"]: detail_row(r) for r in records}
+    """(index, details-by-id). Together they hold every field, and no more.
+
+    `slug` is in the index rather than the details because it is identity, like
+    `id`: the search page and the Shelf both need to link to a manuscript
+    without first fetching the catalogue prose.
+    """
+    by_id = slugs(records)
+    return ([index_row(r, by_id[r["id"]]) for r in records],
+            {r["id"]: detail_row(r) for r in records})

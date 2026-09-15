@@ -1,4 +1,4 @@
-"""python -m build  ->  data/{puzzles,details,context,lookalikes}.json"""
+"""python -m build  ->  data/{puzzles,details,context,lookalikes,vocab}.json"""
 import json
 from dataclasses import asdict
 from pathlib import Path
@@ -7,6 +7,7 @@ from build.aggregates import corpus_context, lookalike_index
 from build.corpus import corpus_root, record_files
 from build.manifests import image_service
 from build.payload import split
+from build.vocab import MATERIALS, ROLES, language_labels
 from build.places import load_places
 from build.records import Record, extract, playable
 from build.works import load_subjects
@@ -57,6 +58,14 @@ def main() -> None:
         "details": details,
         "context": corpus_context(resolved),
         "lookalikes": lookalike_index(resolved),
+        # Every code the pages and the search box turn into a word. The language
+        # labels are the Bodleian's own <textLang> wording, so nothing on a
+        # manuscript page is our paraphrase of what a language is called.
+        "vocab": {
+            "languages": language_labels(root),
+            "materials": MATERIALS,
+            "roles": ROLES,
+        },
     }
     for name, payload in written.items():
         path = OUT / f"{name}.json"

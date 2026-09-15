@@ -9,6 +9,36 @@
 /** Fraction of the page shown at each expansion step. */
 export const EXPANSION_STEPS = [0.14, 0.30, 0.58, 1.0];
 
+export const LAST_STEP = EXPANSION_STEPS.length - 1;
+
+/** A requested step, forced into the dial's range. */
+export const clampStep = (step) => Math.min(Math.max(step | 0, 0), LAST_STEP);
+
+/**
+ * Where a tap on the page goes next: wider, wider, whole leaf, then back to
+ * the detail. It wraps because a touch screen has no hover and so no tooltip,
+ * which leaves the image itself as the only way back on a phone.
+ */
+export const cycleStep = (zoom) => (zoom >= LAST_STEP ? 0 : clampStep(zoom) + 1);
+
+/**
+ * The dial after a move. Two numbers, not one.
+ *
+ * `seen` is the widest step ever asked for and only ever rises: the score is
+ * charged for what has been disclosed, and stepping back cannot unsee it, so
+ * it cannot refund it either. `zoom` is what is drawn now, and moves freely
+ * inside what has already been paid for. Collapsing the two made widening a
+ * dead end — the tight crop is the thing the player is asked to judge, and one
+ * tap took it away for the rest of the round at no saving to anyone.
+ */
+export function moveDial(card, step) {
+  const zoom = clampStep(step);
+  return { zoom, seen: Math.max(card.seen ?? 0, zoom) };
+}
+
+/** What a round is charged for: the widest each card was ever opened to. */
+export const charged = (cards) => cards.reduce((n, c) => n + (c.seen ?? 0), 0);
+
 /**
  * A crop covering `zoom` of each dimension, centred on (cx, cy) in fractional
  * coordinates and clamped to the image bounds. Keeps the page's aspect ratio,

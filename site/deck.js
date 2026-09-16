@@ -81,8 +81,8 @@ export const COLLECTIONS = [
     test: (p) => p.material !== "papyrus" && p.not_before >= 700 },
   { id: "papyri", label: "Ancient papyri", blurb: "Greek and Egyptian, mostly Oxyrhynchus.",
     test: (p) => p.material === "papyrus" },
-  { id: "illuminated", label: "Illuminated", blurb: "Books with painted decoration.",
-    test: (p) => Boolean(p.decorated) },
+  { id: "illuminated", label: "Illuminated", blurb: "Books with painted or gilded decoration.",
+    test: (p) => Boolean(p.painted) },
   { id: "england", label: "Made in England", blurb: "The largest single group.",
     test: (p) => p.region === "England" },
 ];

@@ -55,7 +55,34 @@ def test_index_and_details_do_not_overlap():
 def test_the_index_holds_exactly_the_play_fields_and_one_boolean():
     """The alarm for a prose field creeping back into the first load."""
     index, _ = split([_record()])
-    assert set(index[0]) == set(PLAY_FIELDS) | {"decorated", "slug"}
+    assert set(index[0]) == set(PLAY_FIELDS) | {"decorated", "painted", "slug"}
+
+
+def test_painted_is_narrower_than_decorated_and_says_why():
+    """The Illuminated collection was selecting 88% of the corpus.
+
+    Its blurb has always promised painted decoration, so the label was right and
+    the test was wrong: any decoration note at all admitted "Two-line initials in
+    red", which is rubrication. Red penwork is not illumination.
+    """
+    penwork = _record(decoration=["Two-line initials in red.",
+                                  "One 4-line puzzle initial in red and blue, with penwork"])
+    assert index_row(penwork)["decorated"] is True
+    assert index_row(penwork)["painted"] is False
+
+    for note in ["36 column miniatures", "A full-page miniature", "Gold initials",
+                 "Initials illuminated on a ground of red and blue",
+                 "18 historiated initials", "Burnished gilt ground"]:
+        assert index_row(_record(decoration=[note]))["painted"] is True, note
+
+    for note in ["Two-line initials in red.", "Fine borders", "Rubricated throughout",
+                 "Spaces left for initials"]:
+        assert index_row(_record(decoration=[note]))["painted"] is False, note
+
+
+def test_nothing_painted_without_decoration():
+    assert index_row({"id": "x"})["painted"] is False
+    assert index_row(_record(decoration=[]))["painted"] is False
 
 
 def test_decorated_is_the_test_it_replaces():
@@ -122,7 +149,7 @@ def test_the_built_index_carries_no_prose():
     rows = json.loads((BUILT / "puzzles.json").read_text())
     assert rows, "puzzles.json is empty"
     for field in set().union(*(set(r) for r in rows)):
-        assert field in set(PLAY_FIELDS) | {"decorated", "slug"}, \
+        assert field in set(PLAY_FIELDS) | {"decorated", "painted", "slug"}, \
             f"{field} is in the first load"
 
 

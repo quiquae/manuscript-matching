@@ -8,7 +8,7 @@ const pool = (n = 200, step = 15) =>
   Array.from({ length: n }, (_, i) => ({
     id: `m${i}`, not_before: 700 + i * step, not_after: 700 + i * step + 8,
     region: i % 2 ? "France" : "England", material: i % 5 ? "perg" : "papyrus",
-    decorated: Boolean(i % 3),
+    decorated: Boolean(i % 3), painted: Boolean(i % 3),
   }));
 
 test("the same seed always gives the same sequence", () => {
@@ -82,6 +82,20 @@ test("every collection filter selects something and only what it claims", () => 
   }
   assert.ok(COLLECTIONS.find((c) => c.id === "papyri").test({ material: "papyrus" }));
   assert.ok(!COLLECTIONS.find((c) => c.id === "papyri").test({ material: "perg" }));
+});
+
+/**
+ * Illuminated reads `painted`, not `decorated`. On the real corpus `decorated`
+ * is 88% of the manuscripts, because any note at all counts and a two-line red
+ * initial is a note; the collection's blurb promises painted decoration, which
+ * is 43%. A filter that admits nine books in ten is not a filter.
+ */
+test("Illuminated selects painted books, not merely decorated ones", () => {
+  const illuminated = COLLECTIONS.find((c) => c.id === "illuminated");
+  assert.equal(illuminated.test({ painted: true, decorated: true }), true);
+  assert.equal(illuminated.test({ painted: false, decorated: true }), false);
+  assert.equal(illuminated.test({ decorated: true }), false, "decorated is not enough");
+  assert.equal(illuminated.test({}), false);
 });
 
 test("difficulties are ordered from forgiving to punishing", () => {

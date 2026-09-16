@@ -160,6 +160,13 @@ function paint(card) {
   ctx.fillStyle = "#efe9df";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  // The tightest crop is 95px of a 682px source drawn into a 190px card, a 2x
+  // upscale -- and it is the view every player meets first, since the score
+  // rewards them for not looking wider. Every later step is a downscale. The
+  // browser default resampling is cheap and blocky; this costs nothing and is
+  // the only free improvement to the one view that needs it.
+  ctx.imageSmoothingQuality = "high";
+
   const zoom = EXPANSION_STEPS[Math.min(card.zoom, EXPANSION_STEPS.length - 1)];
   const box = cropBox(card.image.width, card.image.height, card.focus.cx, card.focus.cy, zoom);
   const whole = card.zoom >= EXPANSION_STEPS.length - 1;

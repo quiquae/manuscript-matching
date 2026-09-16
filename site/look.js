@@ -9,7 +9,7 @@ import {
   LANGUAGES, MATERIALS, REVEAL_BUDGET, gradeHand, patchAt, patchSizeAt,
   scoreReading, unrevealedPenalty,
 } from "./lookcloser.js";
-import { focusPoint } from "./crop.js";
+import { focusPoint, SOURCE_WIDTH } from "./crop.js";
 import { DETAIL_FROM_SCALE, detailKey, detailUrl, visiblePageRegion } from "./detail.js";
 import { isReadable, parchmentFraction } from "./readable.js";
 import { renderReveal } from "./reveal.js";
@@ -17,7 +17,6 @@ import { MAX_SCALE, MIN_SCALE, clampView, fitScale, screenToPage, zoomAt } from 
 import { createShelf } from "./shelf.js";
 
 const DATA = "data/";
-const IIIF_WIDTH = 682;
 const REGIONS = ["England", "France", "Italy", "Germany", "Egypt", "Byzantium", "Elsewhere"];
 // Near-black. A trace of the page is left so you can tell a roll from a codex
 // and know which way is up, but nothing on it is legible.
@@ -235,7 +234,7 @@ async function nextCard() {
       img.crossOrigin = "anonymous";
       img.onload = () => resolve(img);
       img.onerror = reject;
-      img.src = `${state.card.iiif}/full/${IIIF_WIDTH},/0/default.jpg`;
+      img.src = `${state.card.iiif}/full/${SOURCE_WIDTH},/0/default.jpg`;
     });
   } catch {
     return nextCard();                 // a dead image must never stall the game

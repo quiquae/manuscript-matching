@@ -9,6 +9,7 @@
 import { ambiguous, COLLECTIONS, DIFFICULTIES, buildSet, seededRandom } from "./deck.js";
 import {
   charged, clampStep, cropBox, cycleStep, EXPANSION_STEPS, focusPoint, LAST_STEP, moveDial,
+  SOURCE_WIDTH,
 } from "./crop.js";
 import { isReadable, parchmentFraction } from "./readable.js";
 import { orderResult } from "./order.js";
@@ -22,7 +23,6 @@ import {
 } from "./daily.js";
 
 const DATA = "data/";
-const IIIF_WIDTH = 682;
 // Arrange is a comparison game: if two manuscripts do not fit on screen at once
 // there is nothing to compare. Cards shrink on narrow viewports rather than
 // forcing a scroll between every pair.
@@ -98,7 +98,7 @@ function loadImage(puzzle) {
     }, IMAGE_TIMEOUT_MS);
     img.onload = () => { clearTimeout(deadline); resolve(img); };
     img.onerror = () => { clearTimeout(deadline); reject(new Error(puzzle.id)); };
-    img.src = `${puzzle.iiif}/full/${IIIF_WIDTH},/0/default.jpg`;
+    img.src = `${puzzle.iiif}/full/${SOURCE_WIDTH},/0/default.jpg`;
   });
 
   // A rejection must never be cached. A manuscript that timed out once would

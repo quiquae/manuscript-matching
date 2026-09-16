@@ -6,6 +6,21 @@
  * one request in five during testing, so nothing here may touch the network.
  */
 
+/**
+ * How wide an image to ask IIIF for, once, per manuscript.
+ *
+ * Set by the tightest crop, not by the card. At 682px the first expansion step
+ * took a 95px slice and drew it into a 190px card -- a 2x upscale of the one
+ * view every player meets first, since the score rewards them for not looking
+ * wider. Blur is not difficulty. At 1000px that slice is 140px and the upscale
+ * is 1.36x, for about 65 KB more per manuscript, paid once because the image is
+ * cached for the session.
+ *
+ * Both games read this. They each held their own copy at 682, which is two
+ * places to change one decision.
+ */
+export const SOURCE_WIDTH = 1000;
+
 /** Fraction of the page shown at each expansion step. */
 export const EXPANSION_STEPS = [0.14, 0.30, 0.58, 1.0];
 

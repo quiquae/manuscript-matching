@@ -35,6 +35,26 @@ const CARD_SIZES = [
 const cardSize = () =>
   CARD_SIZES.find((s) => window.innerWidth <= s.upTo) ?? CARD_SIZES.at(-1);
 
+/**
+ * A canvas sized for the screen it is on, not for CSS pixels.
+ *
+ * The backing store used to be the CSS size, so on any retina display the
+ * browser stretched a 190px bitmap across 380 device pixels on top of whatever
+ * the crop had already upscaled. At the widest two steps the source has the
+ * pixels to spare — the whole leaf is 682px wide — and they were being thrown
+ * away before they reached the glass. Capped at 2: a 3x backing store costs
+ * 2.25x the memory per card for a difference nobody reports seeing.
+ */
+const RATIO = () => Math.min(window.devicePixelRatio || 1, 2);
+
+function fitCanvas(canvas, size) {
+  const r = RATIO();
+  canvas.width = Math.round(size.w * r);
+  canvas.height = Math.round(size.h * r);
+  canvas.style.width = `${size.w}px`;
+  canvas.style.height = `${size.h}px`;
+}
+
 const $ = (id) => document.getElementById(id);
 const shelf = createShelf(window.localStorage);
 const dailyLog = createDailyLog(window.localStorage);
@@ -256,8 +276,42 @@ function startDrag(card, event) {
   event.preventDefault();
 }
 
+/**
+ * Which control the keyboard is on, as something that survives a re-render.
+ *
+ * renderTable() throws the row away and builds it again, so the focused button
+ * is a different object afterwards and focus falls to the body. Reordering by
+ * keyboard meant tabbing back in from the top of the page for every single
+ * nudge. Remembered by card and role rather than by node, for the same reason
+ * the drag is tracked by card: the node does not survive.
+ */
+function focusedControl() {
+  const el = document.activeElement;
+  const bar = el?.closest?.(".card-bar");
+  if (!bar) return null;
+  const seat = bar.parentElement;
+  const i = [...document.querySelectorAll(".card")].indexOf(seat);
+  return i < 0 ? null : { card: state.cards[i], role: el.dataset.role };
+}
+
+function restoreControl(mark) {
+  if (!mark) return;
+  const i = state.cards.indexOf(mark.card);
+  if (i < 0) return;
+  const seat = document.querySelectorAll(".card")[i];
+  const next = seat?.querySelector(`.card-bar [data-role="${mark.role}"]`);
+  // A control that just became unavailable hands focus to its opposite rather
+  // than dropping it: tightening to the last step disables "closer".
+  const fallback = { closer: "wider", wider: "closer", earlier: "later", later: "earlier" };
+  const live = next && !next.disabled
+    ? next
+    : seat?.querySelector(`.card-bar [data-role="${fallback[mark.role]}"]:not(:disabled)`);
+  live?.focus({ preventScroll: true });
+}
+
 function renderTable() {
   const table = $("table");
+  const mark = focusedControl();
   table.innerHTML = "";
 
   state.cards.forEach((card, i) => {
@@ -290,7 +344,7 @@ function renderTable() {
     // page would quietly stretch the card past its own photograph — and on the
     // 116px tier that is the difference between two manuscripts fitting side
     // by side and one. Cap it at the image and let it take a second row.
-    bar.style.maxWidth = `${card.canvas.width}px`;
+    bar.style.maxWidth = `${card.size.w}px`;
 
     const crop = document.createElement("div");
     crop.className = "card-group";
@@ -308,6 +362,7 @@ function renderTable() {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "icon crop";
+      button.dataset.role = text;
       button.textContent = text;
       button.title = title;
       button.setAttribute("aria-label", label);
@@ -329,6 +384,7 @@ function renderTable() {
         const nudge = document.createElement("button");
         nudge.type = "button";
         nudge.className = "icon";
+        nudge.dataset.role = label;
         nudge.textContent = glyph;
         nudge.setAttribute("aria-label", `Move this manuscript one place ${label}`);
         nudge.disabled = dir < 0 ? i === 0 : i === state.cards.length - 1;
@@ -355,6 +411,8 @@ function renderTable() {
 
     table.append(el);
   });
+
+  restoreControl(mark);
 }
 
 function updateStats() {
@@ -424,9 +482,8 @@ async function copyResult() {
 function seat(puzzle) {
   const size = cardSize();
   const canvas = document.createElement("canvas");
-  canvas.width = size.w;
-  canvas.height = size.h;
-  const card = { puzzle, image: null, focus: null, zoom: 0, seen: 0, canvas, pending: true };
+  fitCanvas(canvas, size);
+  const card = { puzzle, image: null, focus: null, zoom: 0, seen: 0, canvas, size, pending: true };
   paint(card);
   return card;
 }
@@ -675,6 +732,7 @@ function chips(el, items, current, onPick) {
     chip.className = "chip";
     chip.textContent = item.label;
     chip.title = item.blurb ?? "";
+    if (item.blurb) chip.setAttribute("aria-label", `${item.label}. ${item.blurb}`);
     if (item.id === current.id) chip.classList.add("is-chosen");
     chip.onclick = () => {
       [...el.children].forEach((c) => c.classList.remove("is-chosen"));
@@ -692,8 +750,8 @@ window.addEventListener("resize", () => {
   if (size.w === lastBand) return;
   lastBand = size.w;
   for (const card of state.cards) {
-    card.canvas.width = size.w;
-    card.canvas.height = size.h;
+    card.size = size;
+    fitCanvas(card.canvas, size);
     paint(card);
   }
 });
@@ -722,6 +780,11 @@ function renderSetup() {
   for (const el of [$("collections"), $("difficulties")]) {
     for (const chip of el.children) chip.disabled = locked;
   }
+  // Five greyed chips look like a broken filter bar unless something says
+  // why. The reason is the point of a daily, so it is worth one line.
+  $("locked-note").textContent =
+    "The daily set is the same for everyone, so these are fixed. Play Endless to choose your own.";
+  $("locked-note").hidden = !locked;
   $("round-label").textContent = locked
     ? `Daily #${puzzleNumber(state.day)} · ${dailyLabel(state.day)}`
     : "Endless · your own slice";

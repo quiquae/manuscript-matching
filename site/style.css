@@ -5,7 +5,8 @@
   --ink-soft: #6f6150;
   --rubric: #9e2b25;
   --green: #3a6b48;
-  --rule: #d8cdb8;
+  --rule: #d8cdb8;        /* separators: deliberately faint */
+  --edge: #9f8758;        /* control boundaries: 3.0:1 on parchment, 3.3:1 on card */
   --shadow: 0 1px 2px rgb(43 36 25 / 8%);
 }
 
@@ -36,7 +37,7 @@ h1 { margin: 0; font-size: clamp(1.75rem, 5vw, 2.5rem); font-weight: 600; letter
 }
 .hint { text-transform: none; letter-spacing: 0; font-weight: 400; font-style: italic; }
 
-nav { display: flex; gap: .4rem; justify-content: center; }
+nav { display: flex; gap: .4rem; justify-content: center; flex-wrap: wrap; }
 
 /* Setting display on button/.mode outranks the user-agent [hidden] rule, so
    restore it explicitly or every `hidden` attribute in the markup is ignored. */
@@ -45,7 +46,7 @@ nav { display: flex; gap: .4rem; justify-content: center; }
 button, .mode {
   font: inherit; padding: .45rem 1rem; cursor: pointer;
   background: var(--card); color: var(--ink); text-decoration: none;
-  border: 1px solid var(--rule); border-radius: 2px;
+  border: 1px solid var(--edge); border-radius: 2px;
   display: inline-block; line-height: 1.4;
 }
 button:hover:not(:disabled), .mode:hover { border-color: var(--ink-soft); }
@@ -144,6 +145,8 @@ footer { max-width: 64rem; margin: 3.5rem auto 0; border-top: 1px solid var(--ru
 #year { width: 100%; accent-color: var(--rubric); }
 #year-out { font-variant-numeric: tabular-nums; font-size: 1.1rem; }
 .choices { display: flex; flex-wrap: wrap; gap: .35rem; }
+/* Spans the setup row rather than one group, because it explains all of them. */
+.locked-note { flex-basis: 100%; margin: .1rem 0 0; font-size: .8rem; color: var(--ink-soft); }
 .chip { padding: .3rem .7rem; font-size: .85rem; text-transform: capitalize; }
 .chip.is-chosen { background: var(--rubric); color: var(--parchment); border-color: var(--rubric); }
 
@@ -299,7 +302,7 @@ main section { margin-top: 2rem; }
 #notes {
   width: 100%; font: inherit; font-size: .92rem; padding: .6rem .7rem;
   background: var(--card); color: var(--ink);
-  border: 1px solid var(--rule); border-radius: 2px; resize: vertical;
+  border: 1px solid var(--edge); border-radius: 2px; resize: vertical;
 }
 #notes:focus-visible { outline: 2px solid var(--rubric); outline-offset: 1px; }
 #notes::placeholder { color: var(--ink-soft); opacity: .8; font-style: italic; }
@@ -323,10 +326,10 @@ main section { margin-top: 2rem; }
 
 /* ---- Look Closer: the looking glass ------------------------------------- */
 .stage { display: flex; gap: 2.5rem; align-items: flex-start; flex-wrap: wrap; }
-.stage #card { margin: 0; flex: 0 0 auto; }
+.stage #card { margin: 0; flex: 0 1 auto; min-width: 0; max-width: 100%; }
 .stage #controls { flex: 1 1 18rem; min-width: 15rem; }
 
-.looking-glass { position: relative; display: inline-block; }
+.looking-glass { position: relative; display: block; max-width: 100%; }
 .looking-glass #view {
   display: block; max-width: 100%; height: auto;
   border: 1px solid var(--ink); background: #1c1712;
@@ -335,7 +338,7 @@ main section { margin-top: 2rem; }
 .looking-glass #view:hover { border-color: var(--rubric); }
 
 .glass-hint {
-  position: absolute; inset: auto 0 1.25rem 0; margin: 0;
+  position: absolute; inset: auto 0 1rem 0; margin: 0;
   text-align: center; pointer-events: none;
   font-size: .8rem; letter-spacing: .04em; font-style: italic;
   color: rgb(244 239 228 / 85%); text-shadow: 0 1px 3px rgb(0 0 0 / 70%);
@@ -350,7 +353,7 @@ main section { margin-top: 2rem; }
 #hand {
   width: 100%; font: inherit; padding: .5rem .65rem;
   background: var(--card); color: var(--ink);
-  border: 1px solid var(--rule); border-radius: 2px;
+  border: 1px solid var(--edge); border-radius: 2px;
 }
 #hand:focus-visible { outline: 2px solid var(--rubric); outline-offset: 1px; }
 #hand-field span em {
@@ -410,7 +413,7 @@ h1 a:hover, .site-title a:hover { color: var(--rubric); }
 #q {
   width: 100%; font: inherit; font-size: 1.15rem; padding: .6rem .75rem;
   background: var(--card); color: var(--ink);
-  border: 1px solid var(--rule); border-radius: 2px;
+  border: 1px solid var(--edge); border-radius: 2px;
 }
 #q:focus-visible { outline: 2px solid var(--rubric); outline-offset: 1px; }
 #q::placeholder { color: var(--ink-soft); opacity: .75; font-style: italic; }

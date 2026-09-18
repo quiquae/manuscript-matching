@@ -19,7 +19,7 @@ const pool = (n = 200, step = 15) =>
   Array.from({ length: n }, (_, i) => ({
     id: `m${i}`, not_before: 700 + i * step, not_after: 700 + i * step + 8,
     region: i % 2 ? "France" : "England", material: i % 5 ? "perg" : "papyrus",
-    decorated: Boolean(i % 3), painted: Boolean(i % 3),
+    painted: Boolean(i % 3),
   }));
 
 /* ------------------------------------------------------------------ the day */

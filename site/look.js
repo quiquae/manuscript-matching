@@ -38,7 +38,7 @@ const state = {
   detail: null,          // { key, image } — a sharp crop of the zoomed region
   detailKey: null,       // the key currently being fetched
   detailTimer: null,
-  choice: { region: null, material: null, language: null, decorated: null },
+  choice: { region: null, material: null, language: null },
 };
 
 /* --------------------------------------------------------------- drawing */
@@ -217,7 +217,7 @@ async function nextCard() {
   state.patches = [];
   state.detail = null;
   state.detailKey = null;
-  state.choice = { region: null, material: null, language: null, decorated: null };
+  state.choice = { region: null, material: null, language: null };
   document.querySelectorAll(".chip.is-chosen").forEach((c) => c.classList.remove("is-chosen"));
   $("hand").value = "";
 
@@ -386,7 +386,6 @@ $("reading").onsubmit = (event) => {
     region: state.choice.region,
     material: state.choice.material,
     language: state.choice.language,
-    decorated: state.choice.decorated,
   };
   let gained = scoreReading(guess, state.card, state.patches.length);
 
@@ -443,9 +442,6 @@ async function boot() {
             (v) => { state.choice.region = v; });
     chipRow($("materials"), MATERIALS, (v) => { state.choice.material = v; });
     chipRow($("languages"), LANGUAGES, (v) => { state.choice.language = v; });
-    chipRow($("decorated"),
-            [{ id: true, label: "Decorated" }, { id: false, label: "Plain" }],
-            (v) => { state.choice.decorated = v; });
     await nextCard();
   } catch (err) {
     $("hint").textContent =

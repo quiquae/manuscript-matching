@@ -2,9 +2,16 @@
  * Look Closer — one page, a handful of looks, then a reading.
  *
  * The axes are the ones the Bodleian's own catalogue facets on *and* that a
- * page can actually show you: century, origin, material, language, decoration,
- * and the hand itself. Subject was dropped: what a book is about is the one
- * thing looking at it will not tell you.
+ * page can actually show you: century, origin, material, language, and the hand
+ * itself. Subject was dropped: what a book is about is the one thing looking at
+ * it will not tell you.
+ *
+ * Decoration was dropped too, later and for a different reason. 1,940 of the
+ * 2,201 manuscripts carry some decoration, so "Decorated or plain?" was right
+ * nine times in ten before you looked at anything. Narrowing it to painted or
+ * gilded would have made it 43/57 and answerable, but a question you win by
+ * saying yes is not improved by making it harder to guess — it is still asking
+ * about the least informative thing on the page.
  */
 
 /** Patches you may uncover before committing. */
@@ -17,8 +24,15 @@ const PATCH_GROWTH_MS = 9000;
 const MAX_SCORE = 1000;
 const TOLERANCE = 150;          // years outside the range before credit is nil
 
+// Must sum to 1: the score is MAX_SCORE x accuracy, so a set that sums to less
+// than 1 silently caps a perfect reading below the full thousand and nothing
+// reports it. Asserted in lookcloser.test.js.
+//
+// Redistributed when decoration was dropped, keeping the shape the old set had
+// -- date dominant, origin second, material and language level. The removed
+// 0.14 went mostly to the date, which is the axis the game is named for.
 const WEIGHTS = {
-  date: 0.34, region: 0.2, material: 0.16, language: 0.16, decorated: 0.14,
+  date: 0.4, region: 0.24, material: 0.18, language: 0.18,
 };
 
 /** What a page can be made of. */
@@ -79,15 +93,16 @@ export function unrevealedPenalty(revealsUsed) {
 }
 
 export function scoreReading(guess, truth, revealsUsed) {
-  const decorated = Boolean(truth.decorated);
   const accuracy =
     dateCredit(guess.year, truth) * WEIGHTS.date
     + (guess.region === truth.region ? WEIGHTS.region : 0)
     + (guess.material === truth.material ? WEIGHTS.material : 0)
-    + (guess.language === truth.language ? WEIGHTS.language : 0)
-    + (guess.decorated === decorated ? WEIGHTS.decorated : 0);
+    + (guess.language === truth.language ? WEIGHTS.language : 0);
   return Math.round(MAX_SCORE * accuracy * unrevealedPenalty(revealsUsed));
 }
+
+/** The weights, for the test that holds them to summing to one. */
+export const AXIS_WEIGHTS = WEIGHTS;
 
 /* ---- the typed palaeography answer ------------------------------------- */
 

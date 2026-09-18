@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  MATERIALS, LANGUAGES, REVEAL_BUDGET, dateCredit, gradeHand, patchAt,
+  AXIS_WEIGHTS, MATERIALS, LANGUAGES, REVEAL_BUDGET, dateCredit, gradeHand, patchAt,
   patchSizeAt, scoreReading, unrevealedPenalty,
 } from "../lookcloser.js";
 
@@ -37,29 +37,49 @@ test("restraint is rewarded and the budget never zeroes the score", () => {
   assert.ok(unrevealedPenalty(REVEAL_BUDGET) < unrevealedPenalty(1));
 });
 
+const TRUTH = {
+  not_before: 1300, not_after: 1325, region: "France", material: "perg", language: "fro",
+};
+
 test("a reading is graded on what you can actually see", () => {
-  const truth = {
-    not_before: 1300, not_after: 1325, region: "France",
-    material: "perg", language: "fro", decorated: true,
-  };
   const perfect = scoreReading(
-    { year: 1310, region: "France", material: "perg", language: "fro", decorated: true },
-    truth, 0);
+    { year: 1310, region: "France", material: "perg", language: "fro" }, TRUTH, 0);
   const wrong = scoreReading(
-    { year: 900, region: "Italy", material: "chart", language: "la", decorated: false },
-    truth, 0);
+    { year: 900, region: "Italy", material: "chart", language: "la" }, TRUTH, 0);
   assert.ok(perfect > wrong);
   assert.equal(wrong, 0);
 });
 
-test("decoration is graded as present or absent, which is what you can see", () => {
-  const bare = { not_before: 1300, not_after: 1325, region: "France",
-                 material: "perg", language: "la", decorated: false };
-  const said_yes = scoreReading({ year: 1310, region: "France", material: "perg",
-                                  language: "la", decorated: true }, bare, 0);
-  const said_no = scoreReading({ year: 1310, region: "France", material: "perg",
-                                 language: "la", decorated: false }, bare, 0);
-  assert.ok(said_no > said_yes);
+/**
+ * The score is MAX_SCORE x accuracy, so weights summing to less than one cap a
+ * perfect reading below the full thousand and nothing says so. This fired
+ * nowhere when decoration was removed and its 0.14 had to be redistributed,
+ * which is exactly the edit that needed a guard.
+ */
+test("the axis weights sum to one, so a perfect reading scores full marks", () => {
+  const total = Object.values(AXIS_WEIGHTS).reduce((a, b) => a + b, 0);
+  assert.ok(Math.abs(total - 1) < 1e-9, `weights sum to ${total}`);
+  assert.equal(
+    scoreReading({ year: 1310, region: "France", material: "perg", language: "fro" },
+                 TRUTH, 0),
+    1000);
+});
+
+/**
+ * Decoration is not asked about. 1,940 of 2,201 manuscripts carry some, so
+ * "Decorated or plain?" was right nine times in ten before you looked at
+ * anything, and narrowing it to painted would have made it answerable without
+ * making it worth asking.
+ */
+test("decoration is not one of the axes", () => {
+  assert.equal("decorated" in AXIS_WEIGHTS, false);
+  assert.equal("painted" in AXIS_WEIGHTS, false);
+  // And a guess carrying one is ignored rather than credited.
+  const plain = scoreReading({ year: 1310, region: "France", material: "perg",
+                               language: "fro" }, TRUTH, 0);
+  const withIt = scoreReading({ year: 1310, region: "France", material: "perg",
+                                language: "fro", decorated: true }, TRUTH, 0);
+  assert.equal(plain, withIt);
 });
 
 test("the offered materials and languages are the ones a page can show", () => {

@@ -55,7 +55,7 @@ def test_index_and_details_do_not_overlap():
 def test_the_index_holds_exactly_the_play_fields_and_one_boolean():
     """The alarm for a prose field creeping back into the first load."""
     index, _ = split([_record()])
-    assert set(index[0]) == set(PLAY_FIELDS) | {"decorated", "painted", "slug"}
+    assert set(index[0]) == set(PLAY_FIELDS) | {"painted", "slug"}
 
 
 def test_painted_is_narrower_than_decorated_and_says_why():
@@ -67,7 +67,6 @@ def test_painted_is_narrower_than_decorated_and_says_why():
     """
     penwork = _record(decoration=["Two-line initials in red.",
                                   "One 4-line puzzle initial in red and blue, with penwork"])
-    assert index_row(penwork)["decorated"] is True
     assert index_row(penwork)["painted"] is False
 
     for note in ["36 column miniatures", "A full-page miniature", "Gold initials",
@@ -85,28 +84,15 @@ def test_nothing_painted_without_decoration():
     assert index_row(_record(decoration=[]))["painted"] is False
 
 
-def test_decorated_is_the_test_it_replaces():
-    """`decorated` must mean exactly `(decoration ?? []).length > 0`, as deck.js did."""
-    for decoration, expected in (
-        (["Fine initials"], True),
-        ([], False),
-        (None, False),
-    ):
-        assert index_row(_record(decoration=decoration))["decorated"] is expected
-    assert index_row({"id": "x"})["decorated"] is False      # field absent entirely
+def test_nothing_in_the_index_is_read_by_nobody():
+    """`decorated` was removed the day Look Closer stopped asking about it.
 
-
-def test_date_display_is_in_the_index_because_the_card_shows_it():
-    """Regression: the split put it in the details and every card lost its "c.".
-
-    `renderTable` writes `date_display || not_before-not_after` onto the card as
-    soon as the order is committed, which happens before the reveal's details
-    have been merged in. A missing `date_display` does not fail, it silently
-    degrades "c. 1470-1480" to "1470-1480" -- a circa quietly becoming a claim.
+    It had been the Illuminated filter's key and then Look Closer's
+    "Decorated or plain?" answer. When the question went, nothing in the browser
+    read the field, and a field nobody reads is what `decks.json` was.
     """
-    index, details = split([_record()])
-    assert index[0]["date_display"] == "c. 1300–1325"
-    assert "date_display" not in details["manuscript_1"]
+    index, _ = split([_record()])
+    assert "decorated" not in index[0]
 
 
 def test_hand_stays_in_the_details():
@@ -134,7 +120,7 @@ def test_a_record_missing_optional_fields_still_splits():
     bare = {"id": "m", "not_before": 900, "not_after": 950, "iiif": "x"}
     index, details = split([bare])
     assert index[0]["id"] == "m"
-    assert index[0]["decorated"] is False
+    assert index[0]["painted"] is False
     assert detail_row(bare) == {}
 
 
@@ -149,7 +135,7 @@ def test_the_built_index_carries_no_prose():
     rows = json.loads((BUILT / "puzzles.json").read_text())
     assert rows, "puzzles.json is empty"
     for field in set().union(*(set(r) for r in rows)):
-        assert field in set(PLAY_FIELDS) | {"decorated", "painted", "slug"}, \
+        assert field in set(PLAY_FIELDS) | {"painted", "slug"}, \
             f"{field} is in the first load"
 
 

@@ -67,7 +67,6 @@ PLAY_FIELDS = (
 def index_row(record: dict, slug: str = "") -> dict:
     """The play-time view of one record, plus how to link to its own page."""
     row = {k: record[k] for k in PLAY_FIELDS if k in record}
-    row["decorated"] = bool(record.get("decoration"))
     row["painted"] = bool(PAINTED.search(" ".join(record.get("decoration") or [])))
     row["slug"] = slug or record["id"]
     return row

@@ -18,7 +18,7 @@ VOCAB = {"languages": {"la": "Latin"}, "materials": {"perg": "parchment"},
 def _record(rid="manuscript_1", **over):
     rec = {
         "id": rid, "shelfmark": "MS. Douce 1", "catalogue": "https://example/1",
-        "not_before": 1300, "not_after": 1325, "date_display": "c. 1300–1325",
+        "not_before": 1300, "not_after": 1325, "date_label": "c. 1300–1325",
         "region": "France", "language": "la", "material": "perg",
         "iiif": "https://iiif/1", "attribution": "Bodleian Libraries", "decorated": True,
         "slug": "ms-douce-1",
@@ -29,7 +29,7 @@ def _record(rid="manuscript_1", **over):
 
 def _detail(**over):
     d = {
-        "place_name": "Paris", "subjects": ["bible"],
+        "date_display": "c. 1300–1325", "place_name": "Paris", "subjects": ["bible"],
         "hand": "Gothic textualis, one hand throughout.",
         "layout": "Two columns of 40 lines.",
         "decoration": ["Fine initials", "A miniature at fol. 1r"],
@@ -235,6 +235,43 @@ def test_the_committed_sitemap_is_not_stale():
     expected = sitemap(sorted(set(paths), key=paths.index))
     assert committed.read_text() == expected, \
         "site/sitemap.xml is out of date; run python3 scripts/make_pages.py"
+
+
+@built
+def test_no_generated_page_has_an_unusable_meta_description():
+    """Every page, not a sample.
+
+    An audit that linted 40 manuscript pages found six descriptions over 170
+    characters. The corpus held 481, the longest 938, because one manuscript's
+    `date_display` is a 789-character argument about whether the book can be
+    dated at all. Sampling is how a defect of that size reads as a rounding
+    error, so this walks all of them.
+    """
+    pages = sorted(Path("site/ms").glob("*.html"))
+    assert len(pages) > 2000, f"only {len(pages)} pages generated"
+    bad = []
+    for page in pages:
+        m = re.search(r'<meta name="description" content="([^"]*)"', page.read_text())
+        if not m:
+            bad.append(f"{page.name}: none")
+        elif not 50 <= len(m.group(1)) <= 170:
+            bad.append(f"{page.name}: {len(m.group(1))} chars")
+    assert not bad, f"{len(bad)} pages: {bad[:5]}"
+
+
+@built
+def test_no_generated_page_puts_a_paragraph_where_a_date_goes():
+    """The summary line and the alt text take a label, never the full wording."""
+    pages = sorted(Path("site/ms").glob("*.html"))
+    bad = []
+    for page in pages:
+        html = page.read_text()
+        for pattern, what in [(r'<p class="ms-summary">([^<]*)</p>', "summary"),
+                              (r'<img [^>]*alt="([^"]*)"', "alt")]:
+            m = re.search(pattern, html)
+            if m and len(m.group(1)) > 200:
+                bad.append(f"{page.name} {what}: {len(m.group(1))} chars")
+    assert not bad, f"{len(bad)} pages: {bad[:5]}"
 
 
 @built

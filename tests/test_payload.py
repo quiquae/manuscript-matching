@@ -55,7 +55,7 @@ def test_index_and_details_do_not_overlap():
 def test_the_index_holds_exactly_the_play_fields_and_one_boolean():
     """The alarm for a prose field creeping back into the first load."""
     index, _ = split([_record()])
-    assert set(index[0]) == set(PLAY_FIELDS) | {"painted", "slug"}
+    assert set(index[0]) == set(PLAY_FIELDS) | {"painted", "slug", "date_label"}
 
 
 def test_painted_is_narrower_than_decorated_and_says_why():
@@ -93,6 +93,31 @@ def test_nothing_in_the_index_is_read_by_nobody():
     """
     index, _ = split([_record()])
     assert "decorated" not in index[0]
+
+
+def test_a_date_that_is_a_paragraph_is_labelled_short_and_kept_whole():
+    """St John's College MS 164 carries 789 characters in `date_display`.
+
+    The cataloguer wrote an argument where a date goes, and it reached the card,
+    the summary line, the image alt text and a 938-character meta description.
+    The index now carries a label; the full wording stays in the details, where
+    the page quotes it under "Date, as catalogued".
+    """
+    essay = ("1365 x 1377. It is unclear whether our book should be considered "
+             "a datable manuscript. A terminus a quo might be established by "
+             "Oresme's work here.")
+    index, details = split([_record(date_display=essay)])
+    assert index[0]["date_label"] == "1365 x 1377"
+    assert details["manuscript_1"]["date_display"] == essay
+    assert "date_display" not in index[0], "the paragraph must not be in the first load"
+
+
+def test_a_short_date_is_labelled_unchanged():
+    assert split([_record()])[0][0]["date_label"] == "c. 1300\u20131325"
+
+
+def test_no_date_at_all_falls_back_to_the_range():
+    assert split([_record(date_display="")])[0][0]["date_label"] == "1300\u20131325"
 
 
 def test_hand_stays_in_the_details():
@@ -135,7 +160,7 @@ def test_the_built_index_carries_no_prose():
     rows = json.loads((BUILT / "puzzles.json").read_text())
     assert rows, "puzzles.json is empty"
     for field in set().union(*(set(r) for r in rows)):
-        assert field in set(PLAY_FIELDS) | {"painted", "slug"}, \
+        assert field in set(PLAY_FIELDS) | {"painted", "slug", "date_label"}, \
             f"{field} is in the first load"
 
 

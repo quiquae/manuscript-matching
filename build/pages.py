@@ -62,6 +62,25 @@ def indexable(detail: dict) -> bool:
     return prose_length(detail) > 0
 
 
+DESCRIPTION_MAX = 160
+
+
+def clip(text, limit=DESCRIPTION_MAX):
+    """Trim to `limit` on a word boundary.
+
+    A backstop, not the fix: `date_label` stops the one field that made a
+    938-character description. This bounds the result whatever any other
+    field turns out to hold. Over-long descriptions are not penalised, they
+    are truncated mid-word by whoever renders them, which puts the cut
+    outside our control.
+    """
+    text = " ".join(str(text or "").split())
+    if len(text) <= limit:
+        return text
+    cut = text[:limit].rsplit(" ", 1)[0].rstrip(" ,;:-")
+    return cut if cut.endswith(".") else cut + "\u2026"
+
+
 def _head(title, description, path, image, extra="", robots=""):
     """The metadata block, identical in shape to the hand-written pages'."""
     url = BASE + path
@@ -123,7 +142,7 @@ FOOTER = """<footer>
 def _summary(row, vocab):
     """'c. 1300–1325 · England · parchment · Latin', skipping what is unknown."""
     language = vocab.get("languages", {}).get(row.get("language"), row.get("language"))
-    parts = [row.get("date_display") or f"{row['not_before']}–{row['not_after']}",
+    parts = [row.get("date_label") or f"{row['not_before']}–{row['not_after']}",
              row.get("region"), material_label(row.get("material", "")), language]
     return " · ".join(p for p in parts if p and p not in {"unknown", "Elsewhere"})
 
@@ -204,7 +223,7 @@ def _lookalikes(ids, index_by_id, slug_of):
         f'<img src="{e(r["iiif"])}/full/{THUMB_WIDTH},/0/default.jpg" loading="lazy"'
         f' decoding="async" alt="{e(r.get("shelfmark") or r["id"])}">'
         f'<span class="strip-shelf">{e(r.get("shelfmark") or r["id"])}</span>'
-        f'<span class="strip-when">{e(r.get("date_display") or "")}</span></a>'
+        f'<span class="strip-when">{e(r.get("date_label") or "")}</span></a>'
         for r in near)
     return ('<section class="ms-block"><h2>Of about the same date and place</h2>'
             f'<div class="strip">{items}</div>'
@@ -229,14 +248,14 @@ def manuscript_page(row, detail, vocab, index_by_id, slug_of, lookalikes):
         f"A page of {shelfmark},",
         f"a {support} manuscript" if support else "a manuscript",
         f"from {place}," if place else "",
-        f"{row.get('date_display') or ''}.",
+        f"{row.get('date_label') or ''}.",
     ] if x).replace(" ,", ",").replace(" .", ".")
 
     described = " ".join(x for x in [
         f"{shelfmark}:",
         f"a {support} manuscript" if support else "a manuscript",
         f"from {place}." if place else "of unrecorded origin.",
-        f"{row.get('date_display') or ''}.".strip("."),
+        f"{row.get('date_label') or ''}.".strip("."),
         f"In {language}." if language else "",
         "From the Bodleian Libraries’ catalogue of Western medieval manuscripts.",
     ] if x).replace(" .", ".")
@@ -249,7 +268,7 @@ def manuscript_page(row, detail, vocab, index_by_id, slug_of, lookalikes):
         "image": image,
         "inLanguage": row.get("language") or None,
         "material": support or None,
-        "dateCreated": row.get("date_display") or None,
+        "dateCreated": row.get("date_label") or None,
         "temporalCoverage": f"{row['not_before']}/{row['not_after']}",
         "locationCreated": {"@type": "Place", "name": place} if place else None,
         "holdingArchive": {
@@ -273,7 +292,9 @@ def manuscript_page(row, detail, vocab, index_by_id, slug_of, lookalikes):
                    "CC BY-NC 4.0</a>")
 
     facts = [("Shelfmark", shelfmark),
-             ("Date, as catalogued", row.get("date_display") or ""),
+             # The full wording, not the label: this row is the quotation.
+             ("Date, as catalogued", detail.get("date_display")
+                                     or row.get("date_label") or ""),
              ("Origin", place),
              ("Support", support),
              ("Language", language or ""),
@@ -290,7 +311,7 @@ def manuscript_page(row, detail, vocab, index_by_id, slug_of, lookalikes):
     return f"""<!doctype html>
 <html lang="en">
 <head>
-{_head(f"{shelfmark} — Bodleian Libraries", described, f"ms/{slug}.html", image, ld_block,
+{_head(f"{shelfmark} — Bodleian Libraries", clip(described), f"ms/{slug}.html", image, ld_block,
         "" if indexable(detail)
         else '<meta name="robots" content="noindex,follow">')}
 </head>
@@ -372,7 +393,7 @@ def browse_page(index, slug_of, vocab):
     return f"""<!doctype html>
 <html lang="en">
 <head>
-{_head("Every manuscript, by century — Manuscript Matching", described,
+{_head("Every manuscript, by century — Manuscript Matching", clip(described),
         "browse.html", BASE + "og.png")}
 </head>
 <body>

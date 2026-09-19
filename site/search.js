@@ -70,7 +70,7 @@ function card(row) {
   when.className = "find-when";
   const language = state.vocab.languages?.[row.language] ?? row.language;
   const support = state.vocab.materials?.[row.material] ?? row.material;
-  when.textContent = [row.date_display || `${row.not_before}–${row.not_after}`,
+  when.textContent = [row.date_label || `${row.not_before}–${row.not_after}`,
                       row.region, support, language]
     .filter((p) => p && p !== "unknown" && p !== "Elsewhere").join(" · ");
 

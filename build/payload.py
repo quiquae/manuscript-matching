@@ -38,7 +38,7 @@ the small index and fetches the rest while they play.
 """
 import re
 
-from build.vocab import slugs
+from build.vocab import date_label, slugs
 
 # What the catalogue says when a book is painted or gilded rather than merely
 # rubricated. Strictly, to illuminate is to apply gold; in loose scholarly use it
@@ -54,7 +54,6 @@ PLAY_FIELDS = (
     "shelfmark",      # drawn on the card after a commit
     "not_before",     # the whole ordering game
     "not_after",
-    "date_display",   # drawn on the card after a commit, so not reveal-only
     "material",       # a collection filter, and a Look Closer answer
     "region",         # a collection filter, a Look Closer answer, the Shelf
     "language",       # a Look Closer answer
@@ -68,6 +67,10 @@ def index_row(record: dict, slug: str = "") -> dict:
     """The play-time view of one record, plus how to link to its own page."""
     row = {k: record[k] for k in PLAY_FIELDS if k in record}
     row["painted"] = bool(PAINTED.search(" ".join(record.get("decoration") or [])))
+    # A label, not the catalogue's wording: see vocab.date_label. The full
+    # `date_display` stays in the details, where the page quotes it.
+    row["date_label"] = date_label(record.get("date_display"),
+                                   f"{record.get('not_before')}\u2013{record.get('not_after')}")
     row["slug"] = slug or record["id"]
     return row
 

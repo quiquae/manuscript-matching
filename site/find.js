@@ -33,7 +33,7 @@ export function haystack(row, vocab = {}) {
   const materials = vocab.materials ?? {};
   return fold([
     row.shelfmark,
-    row.date_display,
+    row.date_label,
     row.not_before, row.not_after,
     row.region,
     materials[row.material] ?? row.material,

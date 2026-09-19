@@ -404,7 +404,7 @@ function renderTable() {
       facts.rel = "noopener";
       facts.innerHTML = "<strong></strong><span></span><em>Bodleian record ↗</em>";
       facts.querySelector("strong").textContent =
-        card.puzzle.date_display || `${card.puzzle.not_before}–${card.puzzle.not_after}`;
+        card.puzzle.date_label || `${card.puzzle.not_before}–${card.puzzle.not_after}`;
       facts.querySelector("span").textContent = card.puzzle.shelfmark || card.puzzle.id;
       el.append(facts);
     }

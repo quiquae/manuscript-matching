@@ -96,6 +96,35 @@ def language_labels(root: Path) -> dict[str, str]:
     return labels
 
 
+LABEL_MAX = 60
+
+
+def date_label(date_display: str, fallback: str = "") -> str:
+    """A date short enough to sit on a card.
+
+    `date_display` is the cataloguer's own wording and is usually a date --
+    "c. 1300-1325", median 22 characters. Sometimes it is an argument. St John's
+    College MS 164 carries 789 characters beginning "1365 x 1377. It is unclear
+    whether our book should be considered a datable manuscript..." and that ran
+    into the card, the summary line, the image alt text and a 938-character meta
+    description.
+
+    Prefer the first sentence, which in every long case here is the date itself
+    with the discussion after it. Fall back to a word-boundary cut. The full
+    text is not lost: the manuscript page quotes it under "Date, as catalogued",
+    which is the place that should carry the cataloguer's reasoning.
+    """
+    text = " ".join(str(date_display or "").split())
+    if not text:
+        return fallback
+    if len(text) <= LABEL_MAX:
+        return text
+    first = text.split(". ", 1)[0].rstrip(".")
+    if first and len(first) <= LABEL_MAX:
+        return first
+    return text[:LABEL_MAX].rsplit(" ", 1)[0].rstrip(" ,;:-") + "\u2026"
+
+
 # ------------------------------------------------------------------- slugs
 
 _PUNCT = re.compile(r"[^a-z0-9]+")

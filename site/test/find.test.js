@@ -10,16 +10,16 @@ const vocab = {
 };
 
 const ms = (over = {}) => ({
-  id: "m1", slug: "ms-douce-1", shelfmark: "MS. Douce 1", date_display: "c. 1300",
+  id: "m1", slug: "ms-douce-1", shelfmark: "MS. Douce 1", date_label: "c. 1300",
   not_before: 1300, not_after: 1325, region: "England", material: "perg",
   language: "la", iiif: "https://iiif/1", ...over,
 });
 
 const corpus = [
   ms(),
-  ms({ id: "m2", shelfmark: "MS. Canon. Ital. 1", date_display: "15th century",
+  ms({ id: "m2", shelfmark: "MS. Canon. Ital. 1", date_label: "15th century",
        not_before: 1400, not_after: 1450, region: "Italy", material: "chart", language: "it" }),
-  ms({ id: "m3", shelfmark: "MS. Barocci 12", date_display: "11th century",
+  ms({ id: "m3", shelfmark: "MS. Barocci 12", date_label: "11th century",
        not_before: 1000, not_after: 1099, region: "Byzantium", material: "perg",
        language: "grc" }),
 ];
@@ -45,6 +45,7 @@ test("the haystack includes the words a code stands for", () => {
   assert.match(hay, /parchment/, "the support label must be searchable");
   assert.match(hay, /england/);
   assert.match(hay, /1300/);
+  assert.match(hay, /c 1300/, "the date label must be searchable");
 });
 
 test("a code with no label is still searchable as itself", () => {

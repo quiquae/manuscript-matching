@@ -90,7 +90,7 @@ async function boot() {
     a.querySelector("img").src = `${p.iiif}/full/200,/0/default.jpg`;
     a.querySelector(".met-shelf").textContent = p.shelfmark || p.id;
     a.querySelector(".met-when").textContent =
-      p.date_display || `${p.not_before}–${p.not_after}`;
+      p.date_label || `${p.not_before}–${p.not_after}`;
     met.append(a);
   }
 }

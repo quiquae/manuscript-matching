@@ -237,6 +237,25 @@ def test_the_committed_sitemap_is_not_stale():
         "site/sitemap.xml is out of date; run python3 scripts/make_pages.py"
 
 
+def _generate_all():
+    """Every manuscript page, built in memory from the committed JSON.
+
+    Not read from site/ms/: that directory is gitignored, so on a clean
+    checkout it holds nothing and a test that walks it passes by finding no
+    files. It did exactly that in CI the first time, which is the same
+    sampling mistake these tests exist to catch, one level up.
+    """
+    rows = json.loads((BUILT / "puzzles.json").read_text())
+    details = json.loads((BUILT / "details.json").read_text())
+    vocab = json.loads((BUILT / "vocab.json").read_text())
+    lookalikes = json.loads((BUILT / "lookalikes.json").read_text())
+    by_id = {r["id"]: r for r in rows}
+    slug_of = {r["id"]: r["slug"] for r in rows}
+    for row in rows:
+        yield row["slug"], manuscript_page(row, details.get(row["id"], {}), vocab,
+                                           by_id, slug_of, lookalikes)
+
+
 @built
 def test_no_generated_page_has_an_unusable_meta_description():
     """Every page, not a sample.
@@ -247,30 +266,30 @@ def test_no_generated_page_has_an_unusable_meta_description():
     dated at all. Sampling is how a defect of that size reads as a rounding
     error, so this walks all of them.
     """
-    pages = sorted(Path("site/ms").glob("*.html"))
-    assert len(pages) > 2000, f"only {len(pages)} pages generated"
-    bad = []
-    for page in pages:
-        m = re.search(r'<meta name="description" content="([^"]*)"', page.read_text())
+    seen, bad = 0, []
+    for slug, html in _generate_all():
+        seen += 1
+        m = re.search(r'<meta name="description" content="([^"]*)"', html)
         if not m:
-            bad.append(f"{page.name}: none")
+            bad.append(f"{slug}: none")
         elif not 50 <= len(m.group(1)) <= 170:
-            bad.append(f"{page.name}: {len(m.group(1))} chars")
-    assert not bad, f"{len(bad)} pages: {bad[:5]}"
+            bad.append(f"{slug}: {len(m.group(1))} chars")
+    assert seen > 2000, f"only {seen} pages generated"
+    assert not bad, f"{len(bad)} of {seen} pages: {bad[:5]}"
 
 
 @built
 def test_no_generated_page_puts_a_paragraph_where_a_date_goes():
     """The summary line and the alt text take a label, never the full wording."""
-    pages = sorted(Path("site/ms").glob("*.html"))
-    bad = []
-    for page in pages:
-        html = page.read_text()
+    seen, bad = 0, []
+    for slug, html in _generate_all():
+        seen += 1
         for pattern, what in [(r'<p class="ms-summary">([^<]*)</p>', "summary"),
                               (r'<img [^>]*alt="([^"]*)"', "alt")]:
             m = re.search(pattern, html)
             if m and len(m.group(1)) > 200:
-                bad.append(f"{page.name} {what}: {len(m.group(1))} chars")
+                bad.append(f"{slug} {what}: {len(m.group(1))} chars")
+    assert seen > 2000, f"only {seen} pages generated"
     assert not bad, f"{len(bad)} pages: {bad[:5]}"
 
 

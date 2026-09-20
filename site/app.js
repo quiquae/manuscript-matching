@@ -12,6 +12,7 @@ import {
   SOURCE_WIDTH,
 } from "./crop.js";
 import { isReadable, parchmentFraction } from "./readable.js";
+import { loadImage } from "./pageimage.js";
 import { orderResult } from "./order.js";
 import { MULTIPLIERS, shareGrid } from "./scoring.js";
 import { renderReveal } from "./reveal.js";
@@ -85,53 +86,6 @@ const state = {
 };
 
 /* ---------------------------------------------------------------- images */
-
-// Bodleian's image server timed out on roughly one request in five during
-// testing, and an <img> whose connection hangs fires neither load nor error.
-// Without a deadline one stalled request stalls the round for as long as the
-// player is willing to sit there, which is the failure this game is most
-// likely to show a stranger.
-const IMAGE_TIMEOUT_MS = 9000;
-
-// A bound on decoded images held in memory, not on what the game may show:
-// evicting one costs a refetch, never a manuscript. Least-recently-used, so a
-// card still on the table is not the one thrown away.
-const IMAGE_CACHE_MAX = 48;
-
-const imageCache = new Map();
-
-/** One request per manuscript while it is cached; every zoom after that is local. */
-function loadImage(puzzle) {
-  const hit = imageCache.get(puzzle.id);
-  if (hit) {
-    imageCache.delete(puzzle.id);         // re-insert so eviction is by age of use
-    imageCache.set(puzzle.id, hit);
-    return hit;
-  }
-
-  const promise = new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    const deadline = setTimeout(() => {
-      img.src = "";                       // abandon the transfer
-      reject(new Error(`${puzzle.id}: no page after ${IMAGE_TIMEOUT_MS}ms`));
-    }, IMAGE_TIMEOUT_MS);
-    img.onload = () => { clearTimeout(deadline); resolve(img); };
-    img.onerror = () => { clearTimeout(deadline); reject(new Error(puzzle.id)); };
-    img.src = `${puzzle.iiif}/full/${SOURCE_WIDTH},/0/default.jpg`;
-  });
-
-  // A rejection must never be cached. A manuscript that timed out once would
-  // otherwise be unavailable for the rest of the session, and on a server that
-  // fails one request in five that is a slice of the corpus going dark.
-  promise.catch(() => imageCache.delete(puzzle.id));
-
-  imageCache.set(puzzle.id, promise);
-  while (imageCache.size > IMAGE_CACHE_MAX) {
-    imageCache.delete(imageCache.keys().next().value);
-  }
-  return promise;
-}
 
 /** One downscaled read of the image, used for both focus and readability. */
 function inspect(img) {
@@ -683,7 +637,9 @@ async function newSet() {
   state.score = 0;
   $("notes").value = "";
   delete $("notes").dataset.saved;
-  imageCache.clear();
+  // The cache is NOT cleared here. Clearing it every round discarded the one
+  // thing it exists for; an earlier commit said this line was gone and it was
+  // not. A manuscript seen in a previous round now costs no request at all.
   $("grid").hidden = true;
   $("share").hidden = true;
   $("share").textContent = "Copy result";

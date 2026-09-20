@@ -9,7 +9,8 @@ import {
   LANGUAGES, MATERIALS, REVEAL_BUDGET, gradeHand, patchAt, patchSizeAt,
   scoreReading, unrevealedPenalty,
 } from "./lookcloser.js";
-import { focusPoint, SOURCE_WIDTH } from "./crop.js";
+import { focusPoint } from "./crop.js";
+import { loadImage } from "./pageimage.js";
 import { DETAIL_FROM_SCALE, detailKey, detailUrl, visiblePageRegion } from "./detail.js";
 import { isReadable, parchmentFraction } from "./readable.js";
 import { renderReveal } from "./reveal.js";
@@ -211,6 +212,9 @@ function pickCard() {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+// How many manuscripts one turn will try before telling the player why not.
+const DRAWS_PER_CARD = 6;
+
 async function nextCard() {
   $("reveal").hidden = true;
   $("reading").hidden = false;
@@ -229,15 +233,21 @@ async function nextCard() {
   $("hand-field").hidden = !gradeHand("", state.card.hand).gradable;
 
   try {
-    state.image = await new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => resolve(img);
-      img.onerror = reject;
-      img.src = `${state.card.iiif}/full/${SOURCE_WIDTH},/0/default.jpg`;
-    });
+    state.image = await loadImage(state.card);
   } catch {
-    return nextCard();                 // a dead image must never stall the game
+    // A dead page must not stall the game, and must not spin it either. This
+    // was a bare `return nextCard()`: no deadline, so a hung connection stopped
+    // Look Closer for good, and no cap, so a server that was down turned the
+    // game into an unbounded request loop. Same counter as the unreadable-page
+    // path below, so the two failure modes share one budget.
+    if ((state.retries ?? 0) >= DRAWS_PER_CARD) {
+      state.retries = 0;
+      $("hint").textContent =
+        "Bodleian's image server is not answering. Try again in a moment.";
+      return undefined;
+    }
+    state.retries = (state.retries ?? 0) + 1;
+    return nextCard();
   }
 
   // Some photographs are of a conservation tray rather than a readable leaf,
@@ -249,7 +259,7 @@ async function nextCard() {
   pctx.drawImage(state.image, 0, 0, probe.width, probe.height);
   const pixels = pctx.getImageData(0, 0, probe.width, probe.height);
   const parchment = parchmentFraction(pixels);
-  if (!isReadable(parchment, state.card.material) && (state.retries ?? 0) < 6) {
+  if (!isReadable(parchment, state.card.material) && (state.retries ?? 0) < DRAWS_PER_CARD) {
     state.retries = (state.retries ?? 0) + 1;
     return nextCard();
   }
